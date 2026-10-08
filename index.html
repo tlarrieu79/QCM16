@@ -121,7 +121,7 @@ async function finish(){
  try{const r=await rpc("submit_answers",{p_pid:V.pid,p_ans:V.P.ans});S.del("pid");V.pid=null;
   app.innerHTML=`<p class="mute">Résultat</p><div class="score">${r.score}/${r.total}</div><p class="sm mute">Résultat transmis à votre formateur.</p>
   <p class="sm">${Object.entries(r.themes).map(([k,v])=>esc(k)+" "+v[0]+"/"+v[1]).join(" · ")}</p>
-  ${r.review.length?`<h2>À revoir</h2>${r.review.map(x=>`<div class="card"><b>${esc(x.q)}</b><br>Bonne réponse : ${x.a.map(i=>esc(x.o[i])).join(" ; ")}<br><span class="mute sm">${esc(x.e||"")}</span></div>`).join("")}`:"<p>Sans faute.</p>"}
+  <h2>Vos réponses</h2>${reviewHtml(r.review,"Votre réponse")}
   <button class="btn" data-a="home">Terminer</button>`}
  catch(e){app.innerHTML=`<p>${esc(msg(e))}</p><button class="btn" data-a="home">Retour</button>`}
 }
@@ -158,10 +158,16 @@ function drawList(){
   <div>${s.status=="lobby"?`<button class="btn s" data-a="start" data-id="${s.id}">Démarrer pour tous</button><button class="btn alt s" data-a="qr" data-id="${s.id}">${T.qr==s.id?"Masquer le QR code":"QR code"}</button>`:""}${s.status!="closed"?`<button class="btn alt s" data-a="endsess" data-id="${s.id}">${s.status=="lobby"?"Fermer":"Terminer"}</button>`:""}<button class="btn alt s" data-a="detail" data-id="${s.id}">Résultats</button><button class="btn del s" data-a="delsess" data-id="${s.id}">Supprimer</button></div>
   ${T.qr==s.id&&s.status=="lobby"?`<div style="margin-top:10px;text-align:center"><div class="qr" style="background:#fff;display:inline-block;padding:10px;border-radius:10px;width:min(100%,320px)">${qrSvg(joinLink(s.code))||`<p style="color:#000;margin:20px">QR code indisponible : donnez le code ou le lien.</p>`}</div><p class="sm" style="margin:8px 0 0">Scannez, puis saisissez votre nom.<br><span class="mute">${esc(joinLink(s.code))}</span></p></div>`:""}
   <p class="sm" style="margin:8px 0 0"><b>${pr.length} présent(s)</b>${s.status!="lobby"?` · ${fin.length} terminé(s)`:""}${avg!==null?` · moyenne ${avg} %`:""}${pr.length?" : "+pr.map(p=>esc(p.name)+(p.finished?" ✓":"")).join(", "):""}</p>
-  ${T.sel==s.id?`<div style="margin-top:8px">${fin.sort((a,b)=>a.score/a.total-b.score/b.total).map(p=>`<div class="sm" style="margin-bottom:6px"><div class="row"><span>${esc(p.name)}</span><b>${p.score}/${p.total} (${Math.round(p.score/p.total*100)} %)</b></div>${weak(p.themes)?`<span class="mute">À revoir : ${esc(weak(p.themes))}</span>`:""}</div>`).join("")||`<p class="sm mute">Aucun résultat pour l'instant.</p>`}</div>`:""}</div>`}).join("")||`<p class="mute">Aucune séance.</p>`;
+  ${T.sel==s.id?`<div style="margin-top:8px">${fin.sort((a,b)=>a.score/a.total-b.score/b.total).map(p=>`<div class="sm" style="margin-bottom:6px"><div class="row"><span>${esc(p.name)}</span><b>${p.score}/${p.total} (${Math.round(p.score/p.total*100)} %)</b></div>${weak(p.themes)?`<span class="mute">À revoir : ${esc(weak(p.themes))}</span><br>`:""}<button class="btn alt s" data-a="pdet" data-id="${p.id}">${T.pd==p.id?"Masquer les réponses":"Voir les réponses"}</button>${T.pd==p.id?(p.review?reviewHtml(p.review,"Réponse du stagiaire"):`<p class="mute">Détail non disponible pour ce stagiaire.</p>`):""}</div>`).join("")||`<p class="sm mute">Aucun résultat pour l'instant.</p>`}</div>`:""}</div>`}).join("")||`<p class="mute">Aucune séance.</p>`;
 }
 function joinLink(c){return location.origin+location.pathname+"?code="+encodeURIComponent(c)}
 function qrSvg(u){try{if(typeof qrcode=="undefined")return"";const q=qrcode(0,"M");q.addData(u);q.make();return q.createSvgTag(6,2)}catch(e){return""}}
+function reviewHtml(rev,who){
+ return rev.map((x,n)=>`<div class="card" style="border-left:5px solid var(${x.good?"--ok":"--ko"})"><div class="row"><b>${n+1}. ${esc(x.q)}</b><span class="tag">${x.good?"Juste":"Faux"}</span></div>
+ ${x.o.map((t,i)=>{const c=x.a.includes(i),k=x.s.includes(i);
+  const m=c&&k?["✓",who+" (juste)","--ok"]:c?["✓","Bonne réponse oubliée","--ok"]:k?["✗",who+" (fausse)","--ko"]:["·","","--mute"];
+  return`<div class="sm" style="display:flex;gap:8px;padding:3px 0;${c||k?"":"opacity:.65"}"><b style="color:var(${m[2]});width:1ch">${m[0]}</b><span>${esc(t)}${m[1]?` <b style="color:var(${m[2]})">· ${m[1]}</b>`:""}</span></div>`}).join("")}
+ ${x.e?`<p class="sm mute" style="margin:6px 0 0">${esc(x.e)}</p>`:""}</div>`).join("")}
 function qlist(){return `<button class="btn" data-a="newq">Nouveau QCM</button>${T.qcms.map(q=>`<div class="card row"><div><b>${esc(q.title)}</b><br><span class="sm mute">${esc(q.level||"")} · ${q.qs.length} questions${q.timer?" · "+q.timer+" s/question":" · sans minuteur"}</span></div><div><button class="btn alt s" data-a="editq" data-id="${q.id}">Modifier</button><button class="btn alt s" data-a="dupq" data-id="${q.id}">Dupliquer</button><button class="btn del s" data-a="delq" data-id="${q.id}">Supprimer</button></div></div>`).join("")||`<p class="mute">Aucun QCM.</p>`}`}
 function editor(){
  const e=T.ed;
@@ -209,6 +215,7 @@ document.addEventListener("click",async e=>{
  if(a=="start"){if(!confirm("Lancer le QCM pour tous les stagiaires présents ?"))return;
   await run(sb.from("sessions").update({status:"running",started_at:new Date().toISOString()}).eq("id",id));await load();return drawList()}
  if(a=="endsess"){await run(sb.from("sessions").update({status:"closed"}).eq("id",id));await load();return drawList()}
+ if(a=="pdet"){T.pd=T.pd==id?null:id;return drawList()}
  if(a=="qr"){T.qr=T.qr==id?null:id;return drawList()}
  if(a=="detail"){T.sel=T.sel==id?null:id;return drawList()}
  if(a=="delsess"){if(confirm("Supprimer cette séance et ses résultats ?")){await run(sb.from("sessions").delete().eq("id",id));await load();drawList()}return}
