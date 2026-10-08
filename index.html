@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>QCM PSE</title>
+<script>
+/* ===== À REMPLIR : gardez bien les guillemets " " autour des valeurs ===== */
+window.CFG={
+  url:"COLLEZ_ICI_VOTRE_URL_SUPABASE",
+  key:"COLLEZ_ICI_VOTRE_CLE_ANON"
+};
+/* ======================================================================== */
+setTimeout(function(){var a=document.getElementById("app");if(a&&a.textContent.trim()==="Chargement…")a.innerHTML="<h1>Le site ne démarre pas</h1><p>Le programme du site ne s'est pas exécuté. Une modification de index.html a probablement supprimé un guillemet ou un caractère. Recopiez le fichier d'origine et ne modifiez que les deux valeurs entre guillemets.</p>"},3000);
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<style>
+:root{--bg:#f3f6fa;--card:#fff;--ink:#12233d;--mute:#5b6b82;--line:#d5dde8;--main:#0b3d91;--on:#fff;--ok:#1a7f4b;--ko:#c62828}
+@media(prefers-color-scheme:dark){:root{--bg:#0d1626;--card:#16233a;--ink:#e8eef8;--mute:#9bacc4;--line:#2a3b57;--main:#5b9bff;--on:#08142a;--ok:#5fd08e;--ko:#ff8a80}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+main{max-width:720px;margin:0 auto;padding:18px 16px 40px}h1{font-size:1.9rem;line-height:1.1;margin:6px 0;font-weight:800}h2{font-size:1.2rem;margin:16px 0 10px}p{margin:0 0 12px}
+.mute{color:var(--mute)}.sm{font-size:.85rem}button,input,textarea,select{font:inherit;color:inherit}
+.btn{display:block;width:100%;padding:12px;border:0;border-radius:10px;background:var(--main);color:var(--on);font-weight:700;cursor:pointer;margin-top:8px}
+.btn.alt{background:transparent;color:var(--main);border:2px solid var(--main)}.btn.del{background:transparent;color:var(--ko);border:2px solid var(--ko)}
+.btn.s{display:inline-block;width:auto;padding:8px 14px;margin:4px 6px 0 0}.btn:disabled{opacity:.4}
+:focus-visible{outline:3px solid var(--main);outline-offset:2px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px}
+.row{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.tabs{display:flex;gap:6px;margin:12px 0}.tabs button{flex:1;padding:10px;border-radius:8px;border:2px solid var(--line);background:var(--card);cursor:pointer}
+.tabs button[aria-current="true"]{background:var(--main);color:var(--on);border-color:var(--main)}
+input,textarea,select{width:100%;padding:10px;border:2px solid var(--line);border-radius:8px;background:var(--bg);margin:4px 0 10px}
+input[type=checkbox]{width:24px;height:24px;margin:0;flex:none;accent-color:var(--main)}.ans{display:flex;gap:10px;align-items:center;margin-bottom:8px}.ans input[type=text]{margin:0}
+.x{width:auto;flex:none;padding:8px 12px;border:2px solid var(--line);border-radius:8px;background:transparent;color:var(--ko);cursor:pointer}
+label{font-size:.85rem;color:var(--mute)}details summary{cursor:pointer;color:var(--main);margin:6px 0 10px}
+.opt{display:block;width:100%;text-align:left;background:var(--card);border:2px solid var(--line);border-radius:10px;padding:13px;margin-bottom:10px;cursor:pointer}.opt.sel{border-color:var(--main)}
+.bar{height:8px;background:var(--line);border-radius:4px;overflow:hidden}.bar i{display:block;height:100%;background:var(--main)}
+.score{font-size:3rem;font-weight:800;line-height:1}.pre{white-space:pre-wrap}.code{font-size:1.7rem;letter-spacing:.2em;font-weight:800;color:var(--main)}
+.tag{display:inline-block;font-size:.75rem;padding:2px 8px;border-radius:99px;border:1px solid var(--line);color:var(--mute)}
+.bigin{font-size:1.8rem;text-align:center;letter-spacing:.3em;text-transform:uppercase}
+</style>
+</head>
+<body>
+<main id="app"><p>Chargement…</p></main>
+<script>
+const SB_URL=((window.CFG||{}).url||"").trim(),SB_KEY=((window.CFG||{}).key||"").trim();
+const MEM={};
+const S={get:k=>{try{return sessionStorage.getItem(k)}catch(e){return MEM[k]||null}},set:(k,v)=>{try{sessionStorage.setItem(k,v)}catch(e){MEM[k]=v}},del:k=>{try{sessionStorage.removeItem(k)}catch(e){delete MEM[k]}}};
+const fail=t=>{document.getElementById("app").innerHTML=`<h1>Le site ne démarre pas</h1><div class="card"><p>${t}</p></div>`};
+window.addEventListener("error",e=>{if(!document.getElementById("app").innerHTML.trim())fail("Erreur : "+e.message)});
+const bad=t=>String(t).replace(/[<&]/g,"");
+let sb=null;
+if(!window.CFG)fail("Le bloc de configuration est illisible (guillemets manquants ?).");
+else if(/COLLEZ_ICI/.test(SB_URL+SB_KEY))fail("L'adresse et la clé Supabase n'ont pas été remplacées dans index.html.");
+else if(!/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/.test(SB_URL))fail("Adresse lue : <b>"+bad(SB_URL)+"</b>.<br>Elle doit ressembler à https://abcdefgh.supabase.co (Project Settings &gt; API &gt; Project URL), et non à l'adresse du tableau de bord Supabase.");
+else if(SB_KEY.length<40)fail("La clé lue fait seulement "+SB_KEY.length+" caractères : elle semble incomplète. Copiez la clé « anon public » en entier.");
+else if(typeof supabase=="undefined")fail("La bibliothèque Supabase n'a pas pu se charger (connexion ou blocage du réseau, par exemple un filtre d'entreprise ou une extension de blocage).");
+else try{sb=supabase.createClient(SB_URL,SB_KEY)}catch(e){fail("Adresse ou clé Supabase invalide : "+e.message)}
+const $=s=>document.querySelector(s),app=$("#app");
+const esc=t=>String(t??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+const fmt=t=>new Date(t).toLocaleDateString("fr-FR");
+const ERR={code_invalide:"Code inconnu. Vérifiez-le auprès de votre formateur.",deja_demarre:"Ce QCM a déjà démarré : vous ne pouvez plus le rejoindre.",nom_invalide:"Indiquez votre prénom et votre nom.",pas_demarre:"Le QCM n'a pas encore démarré.",deja_termine:"Vous avez déjà terminé ce QCM."};
+const rpc=async(n,a)=>{const{data,error}=await sb.rpc(n,a);if(error)throw new Error(error.message);return data};
+const msg=e=>ERR[e.message]||"Une erreur est survenue. Réessayez.";
+let V={pid:S.get("pid"),code:"",title:"",name:"",err:"",P:null,iv:null,timer:0};
+let T={tab:"seances",qcms:[],sessions:[],parts:[],docs:[],ed:null,doc:null,iv:null,sel:null};
+const stop=()=>{clearInterval(V.iv);clearInterval(T.iv)};
+/* ---------- STAGIAIRE ---------- */
+function home(){
+ stop();V.P=null;
+ app.innerHTML=`<h1>QCM PSE</h1><p class="mute">Entrez le code donné par votre formateur.</p>
+ <input id="cd" class="bigin" maxlength="6" autocomplete="off" autocapitalize="characters" aria-label="Code de la séance" placeholder="CODE">
+ ${V.err?`<p class="sm" style="color:var(--ko)" role="alert">${esc(V.err)}</p>`:""}
+ <button class="btn" data-a="code">Continuer</button>
+ <p class="sm mute" style="margin-top:28px"><a href="#" data-a="login" style="color:var(--mute)">Espace formateur</a></p>`;
+ const i=$("#cd");i.addEventListener("keydown",e=>{if(e.key=="Enter")i.nextElementSibling&&document.querySelector('[data-a="code"]').click()});
+}
+function nameView(){
+ app.innerHTML=`<h1>${esc(V.title)}</h1><p class="mute">Avant d'entrer dans la salle, indiquez votre nom : votre formateur verra vos résultats sous ce nom.</p>
+ <label>Prénom et nom</label><input id="nm" autocomplete="name" value="${esc(V.name)}">
+ ${V.err?`<p class="sm" style="color:var(--ko)" role="alert">${esc(V.err)}</p>`:""}
+ <button class="btn" data-a="join">Entrer dans la salle</button><button class="btn alt" data-a="home">Retour</button>`;
+}
+function waitView(){
+ app.innerHTML=`<h1>Salle d'attente</h1><div class="card"><p><b>${esc(V.name||"Vous êtes inscrit(e)")}</b></p><p class="mute" style="margin:0">${esc(V.title)}<br>Le QCM démarre pour tout le monde dès que le formateur le lance. Restez sur cette page.</p></div>`;
+ clearInterval(V.iv);
+ V.iv=setInterval(async()=>{try{const s=await rpc("session_status",{p_pid:V.pid});
+  if(s.status=="running"){clearInterval(V.iv);V.timer=s.timer||0;startPlay()}
+  else if(s.status=="closed"){clearInterval(V.iv);V.err="La séance est terminée.";S.del("pid");V.pid=null;home()}}catch(e){}},2000);
+}
+async function startPlay(){
+ try{const qs=await rpc("get_questions",{p_pid:V.pid});
+  V.P={list:qs.map(k=>({...k,ix:shuffle(k.o.map((_,i)=>i))})),i:0,sel:[],ans:{},dl:0,t:0};startQ()}
+ catch(e){V.err=msg(e);home()}
+}
+function startQ(){
+ const P=V.P,k=P.list[P.i];clearInterval(V.iv);
+ P.t=+k.t||V.timer||0;P.dl=P.t?Date.now()+P.t*1000:0;if(P.t)V.iv=setInterval(tick,250);playView();
+}
+function tick(){
+ const P=V.P;if(!P||!P.dl)return;const ms=P.dl-Date.now(),el=$("#tm");
+ if(el){el.textContent=Math.max(0,Math.ceil(ms/1000))+" s";$("#tb").style.width=Math.max(0,ms/(P.t*10))+"%"}
+ if(ms<=0)advance();
+}
+function advance(){
+ const P=V.P,k=P.list[P.i];clearInterval(V.iv);
+ P.ans[k.i]=P.sel.map(d=>k.ix[d]);P.i++;P.sel=[];P.i<P.list.length?startQ():finish();
+}
+function playView(){
+ const P=V.P,k=P.list[P.i],last=P.i+1==P.list.length;
+ app.innerHTML=`<div class="row sm mute"><span>Question ${P.i+1}/${P.list.length}</span>${P.t?`<b id="tm" style="font-size:1.3rem;color:var(--ink)"></b>`:""}</div>
+ <div class="bar" style="margin:6px 0 12px"><i id="tb" style="width:${P.t?100:P.i/P.list.length*100}%"></i></div>
+ <h2>${esc(k.q)}</h2><p class="sm mute">${k.multi?"Plusieurs réponses possibles":"Une seule réponse"}</p>
+ ${k.ix.map((o,d)=>`<button class="opt${P.sel.includes(d)?" sel":""}" data-a="pick" data-d="${d}">${esc(k.o[o])}</button>`).join("")}
+ <button class="btn" data-a="valid" ${P.sel.length?"":"disabled"}>${last?"Terminer le QCM":"Valider et continuer"}</button>`;
+ tick();
+}
+async function finish(){
+ app.innerHTML=`<p class="mute">Envoi de vos réponses…</p>`;
+ try{const r=await rpc("submit_answers",{p_pid:V.pid,p_ans:V.P.ans});S.del("pid");V.pid=null;
+  app.innerHTML=`<p class="mute">Résultat</p><div class="score">${r.score}/${r.total}</div><p class="sm mute">Résultat transmis à votre formateur.</p>
+  <p class="sm">${Object.entries(r.themes).map(([k,v])=>esc(k)+" "+v[0]+"/"+v[1]).join(" · ")}</p>
+  ${r.review.length?`<h2>À revoir</h2>${r.review.map(x=>`<div class="card"><b>${esc(x.q)}</b><br>Bonne réponse : ${x.a.map(i=>esc(x.o[i])).join(" ; ")}<br><span class="mute sm">${esc(x.e||"")}</span></div>`).join("")}`:"<p>Sans faute.</p>"}
+  <button class="btn" data-a="home">Terminer</button>`}
+ catch(e){app.innerHTML=`<p>${esc(msg(e))}</p><button class="btn" data-a="home">Retour</button>`}
+}
+/* ---------- FORMATEUR ---------- */
+function loginView(){
+ stop();
+ app.innerHTML=`<h1>Espace formateur</h1><label>Adresse e-mail</label><input id="em" type="email" autocomplete="username"><label>Mot de passe</label><input id="pw" type="password" autocomplete="current-password">
+ ${V.err?`<p class="sm" style="color:var(--ko)" role="alert">${esc(V.err)}</p>`:""}<button class="btn" data-a="signin">Se connecter</button><button class="btn alt" data-a="home">Retour</button>`;
+}
+async function load(){
+ const[q,s,p,d]=await Promise.all([sb.from("qcm").select("*").order("created_at"),sb.from("sessions").select("*").order("created_at",{ascending:false}).limit(30),sb.from("participants").select("*").limit(2000),sb.from("docs").select("*").order("created_at",{ascending:false})]);
+ T.qcms=q.data||[];T.sessions=s.data||[];T.parts=p.data||[];T.docs=d.data||[];
+}
+async function trainer(){
+ clearInterval(T.iv);await load();shell();
+ T.iv=setInterval(async()=>{if(T.tab!="seances"||T.ed||T.doc)return;await load();drawList()},3000);
+}
+function shell(){
+ const N=[["seances","Séances"],["qcm","QCM"],["docs","Documentation"]];
+ app.innerHTML=`<div class="row"><h1>Formateur</h1><button class="btn alt s" data-a="signout">Déconnexion</button></div>
+ <div class="tabs">${N.map(([k,l])=>`<button data-a="tab" data-v="${k}" ${T.tab==k?'aria-current="true"':""}>${l}</button>`).join("")}</div><div id="pane"></div>`;
+ const pane=$("#pane");
+ if(T.tab=="seances"){pane.innerHTML=`<h2>Nouvelle séance</h2><div class="card"><label>QCM</label><select id="ns-q">${T.qcms.map(q=>`<option value="${q.id}">${esc(q.title)}</option>`).join("")}</select>
+  <label>Groupe ou stage</label><input id="ns-g" placeholder="Ex. PSE1 – Octobre"><button class="btn" data-a="launch" ${T.qcms.length?"":"disabled"}>Générer le code</button></div><h2>Mes séances</h2><div id="list"></div>`;drawList()}
+ else if(T.tab=="qcm")pane.innerHTML=T.ed?editor():qlist();
+ else pane.innerHTML=T.doc?docEd():docList();
+}
+const weak=th=>Object.entries(th||{}).filter(([k,v])=>v[0]/v[1]<.6).map(([k])=>k).join(", ");
+function drawList(){
+ const el=$("#list");if(!el)return;const LAB={lobby:"Salle ouverte",running:"En cours",closed:"Terminée"};
+ el.innerHTML=T.sessions.map(s=>{const q=T.qcms.find(x=>x.id==s.qcm_id),pr=T.parts.filter(p=>p.session_id==s.id),fin=pr.filter(p=>p.finished);
+  const avg=fin.length?Math.round(fin.reduce((a,p)=>a+p.score/p.total,0)/fin.length*100):null;
+  return`<div class="card"><div class="row"><div><b>${esc(q?q.title:"QCM supprimé")}</b> <span class="tag">${LAB[s.status]}</span><br><span class="sm mute">${esc(s.group_name)} · ${fmt(s.created_at)}</span></div><div class="code">${esc(s.code)}</div></div>
+  <div>${s.status=="lobby"?`<button class="btn s" data-a="start" data-id="${s.id}">Démarrer pour tous</button>`:""}${s.status!="closed"?`<button class="btn alt s" data-a="endsess" data-id="${s.id}">${s.status=="lobby"?"Fermer":"Terminer"}</button>`:""}<button class="btn alt s" data-a="detail" data-id="${s.id}">Résultats</button><button class="btn del s" data-a="delsess" data-id="${s.id}">Supprimer</button></div>
+  <p class="sm" style="margin:8px 0 0"><b>${pr.length} présent(s)</b>${s.status!="lobby"?` · ${fin.length} terminé(s)`:""}${avg!==null?` · moyenne ${avg} %`:""}${pr.length?" : "+pr.map(p=>esc(p.name)+(p.finished?" ✓":"")).join(", "):""}</p>
+  ${T.sel==s.id?`<div style="margin-top:8px">${fin.sort((a,b)=>a.score/a.total-b.score/b.total).map(p=>`<div class="sm" style="margin-bottom:6px"><div class="row"><span>${esc(p.name)}</span><b>${p.score}/${p.total} (${Math.round(p.score/p.total*100)} %)</b></div>${weak(p.themes)?`<span class="mute">À revoir : ${esc(weak(p.themes))}</span>`:""}</div>`).join("")||`<p class="sm mute">Aucun résultat pour l'instant.</p>`}</div>`:""}</div>`}).join("")||`<p class="mute">Aucune séance.</p>`;
+}
+function qlist(){return `<button class="btn" data-a="newq">Nouveau QCM</button>${T.qcms.map(q=>`<div class="card row"><div><b>${esc(q.title)}</b><br><span class="sm mute">${esc(q.level||"")} · ${q.qs.length} questions${q.timer?" · "+q.timer+" s/question":" · sans minuteur"}</span></div><div><button class="btn alt s" data-a="editq" data-id="${q.id}">Modifier</button><button class="btn alt s" data-a="dupq" data-id="${q.id}">Dupliquer</button><button class="btn del s" data-a="delq" data-id="${q.id}">Supprimer</button></div></div>`).join("")||`<p class="mute">Aucun QCM.</p>`}`}
+function editor(){
+ const e=T.ed;
+ return `<div class="card"><label>Titre du QCM</label><input data-f="title" value="${esc(e.title)}"><label>Niveau</label><select data-f="level">${["PSE1","PSE2","PSE1 + PSE2"].map(l=>`<option ${e.level==l?"selected":""}>${l}</option>`).join("")}</select>
+ <label>Temps par question en secondes (0 = sans limite)</label><input type="number" min="0" data-f="timer" value="${e.timer||0}"></div>
+ ${e.qs.map((k,i)=>`<div class="card"><div class="row"><b>Question ${i+1}</b><button class="btn del s" data-a="delk" data-i="${i}">Retirer</button></div>
+ <label>Question</label><textarea rows="2" data-i="${i}" data-k="q">${esc(k.q)}</textarea><label>Réponses : cochez la ou les bonnes</label>
+ ${k.o.map((t,j)=>`<div class="ans"><input type="checkbox" data-i="${i}" data-c="${j}" ${k.a.includes(j)?"checked":""} aria-label="Bonne réponse ${j+1}"><input type="text" data-i="${i}" data-j="${j}" value="${esc(t)}" placeholder="Réponse ${j+1}"><button class="x" data-a="delo" data-i="${i}" data-j="${j}" aria-label="Retirer la réponse ${j+1}">✕</button></div>`).join("")}
+ <button class="btn alt s" data-a="addo" data-i="${i}">+ Réponse</button>
+ <details><summary>Options (explication, temps, thème)</summary><label>Explication affichée à la fin</label><textarea rows="2" data-i="${i}" data-k="e">${esc(k.e)}</textarea>
+ <label>Temps pour cette question en secondes (vide = temps du QCM)</label><input type="number" min="0" data-i="${i}" data-k="t" value="${k.t||""}">
+ <label>Thème (suivi des points faibles)</label><input data-i="${i}" data-k="th" value="${esc(k.th)}"></details></div>`).join("")}
+ <button class="btn alt" data-a="addk">Ajouter une question</button><button class="btn" data-a="saveq">Enregistrer le QCM</button><button class="btn alt" data-a="cancel">Annuler</button>`;
+}
+function docList(){return `<button class="btn" data-a="newd">Ajouter un document</button>${T.docs.map(d=>`<div class="card"><div class="row"><div><b>${esc(d.title)}</b> ${d.cat?`<span class="tag">${esc(d.cat)}</span>`:""}</div><div><button class="btn alt s" data-a="editd" data-id="${d.id}">Modifier</button><button class="btn del s" data-a="deld" data-id="${d.id}">Supprimer</button></div></div><p class="pre sm" style="margin:8px 0 0">${esc(d.body)}</p>${d.url?`<a class="sm" href="${esc(d.url)}" target="_blank" rel="noopener">Ouvrir le lien</a>`:""}</div>`).join("")||`<p class="mute">Aucun document.</p>`}`}
+function docEd(){const d=T.doc;return `<div class="card"><label>Titre</label><input data-d="title" value="${esc(d.title)}"><label>Catégorie</label><input data-d="cat" value="${esc(d.cat)}"><label>Contenu</label><textarea rows="10" data-d="body">${esc(d.body)}</textarea><label>Lien (facultatif)</label><input data-d="url" value="${esc(d.url)}"></div><button class="btn" data-a="saved">Enregistrer</button><button class="btn alt" data-a="cancel">Annuler</button>`}
+/* ---------- ÉVÉNEMENTS ---------- */
+const blankK=()=>({th:"",q:"",o:["","","",""],a:[],e:""});
+const run=async(p,ok)=>{const{error}=await p;if(error){alert("Action impossible : "+error.message);return false}return true};
+document.addEventListener("input",e=>{
+ const t=e.target,E=T.ed;
+ if(E){if(t.dataset.f)E[t.dataset.f]=t.dataset.f=="timer"?Math.max(0,+t.value||0):t.value;
+  else if(t.dataset.c!==undefined){const k=E.qs[+t.dataset.i],j=+t.dataset.c;k.a=t.checked?[...new Set([...k.a,j])]:k.a.filter(x=>x!=j)}
+  else if(t.dataset.j!==undefined)E.qs[+t.dataset.i].o[+t.dataset.j]=t.value;
+  else if(t.dataset.k){const f=t.dataset.k;E.qs[+t.dataset.i][f]=f=="t"?Math.max(0,+t.value||0):t.value}}
+ if(T.doc&&t.dataset.d)T.doc[t.dataset.d]=t.value;
+ if(t.id=="cd")t.value=t.value.toUpperCase();
+});
+document.addEventListener("click",async e=>{
+ const b=e.target.closest("[data-a]");if(!b)return;e.preventDefault();const a=b.dataset.a,id=b.dataset.id,P=V.P,E=T.ed;
+ if(a=="home"){V.err="";return home()}
+ if(a=="code"){const c=$("#cd").value.trim().toUpperCase();V.err="";
+  try{const r=await rpc("check_code",{p_code:c});V.code=c;V.title=r.title;return nameView()}catch(x){V.err=msg(x);return home()}}
+ if(a=="join"){const n=$("#nm").value.trim();V.name=n;V.err="";
+  try{V.pid=await rpc("join_session",{p_code:V.code,p_name:n});S.set("pid",V.pid);return waitView()}catch(x){V.err=msg(x);return nameView()}}
+ if(a=="pick"){const d=+b.dataset.d,k=P.list[P.i];P.sel=k.multi?(P.sel.includes(d)?P.sel.filter(x=>x!=d):[...P.sel,d]):[d];return playView()}
+ if(a=="valid"){if(P.sel.length)advance();return}
+ if(a=="login"){V.err="";const{data}=await sb.auth.getSession();return data.session?trainer():loginView()}
+ if(a=="signin"){const{error}=await sb.auth.signInWithPassword({email:$("#em").value.trim(),password:$("#pw").value});
+  if(error){V.err="E-mail ou mot de passe incorrect.";return loginView()}V.err="";return trainer()}
+ if(a=="signout"){await sb.auth.signOut();return home()}
+ if(a=="tab"){T.tab=b.dataset.v;T.ed=T.doc=null;return shell()}
+ if(a=="launch"){const g=$("#ns-g").value.trim();if(!g)return alert("Indiquez un groupe.");
+  if(await run(sb.from("sessions").insert({qcm_id:$("#ns-q").value,group_name:g})))await load();return shell()}
+ if(a=="start"){if(!confirm("Lancer le QCM pour tous les stagiaires présents ?"))return;
+  await run(sb.from("sessions").update({status:"running",started_at:new Date().toISOString()}).eq("id",id));await load();return drawList()}
+ if(a=="endsess"){await run(sb.from("sessions").update({status:"closed"}).eq("id",id));await load();return drawList()}
+ if(a=="detail"){T.sel=T.sel==id?null:id;return drawList()}
+ if(a=="delsess"){if(confirm("Supprimer cette séance et ses résultats ?")){await run(sb.from("sessions").delete().eq("id",id));await load();drawList()}return}
+ if(a=="newq")T.ed={title:"",level:"PSE1",timer:0,qs:[blankK()]};
+ else if(a=="editq")T.ed=JSON.parse(JSON.stringify(T.qcms.find(x=>x.id==id)));
+ else if(a=="dupq"){const q=T.qcms.find(x=>x.id==id);await run(sb.from("qcm").insert({title:q.title+" (copie)",level:q.level,timer:q.timer,qs:q.qs}));await load()}
+ else if(a=="delq"){if(confirm("Supprimer ce QCM ?")){await run(sb.from("qcm").delete().eq("id",id));await load()}}
+ else if(a=="addk")E.qs.push(blankK());
+ else if(a=="delk")E.qs.splice(+b.dataset.i,1);
+ else if(a=="addo")E.qs[+b.dataset.i].o.push("");
+ else if(a=="delo"){const k=E.qs[+b.dataset.i],j=+b.dataset.j;k.o.splice(j,1);k.a=k.a.filter(x=>x!=j).map(x=>x>j?x-1:x)}
+ else if(a=="saveq"){
+  if(!E.title.trim())return alert("Donnez un titre au QCM.");
+  for(const k of E.qs){const keep=k.o.map((x,i)=>x.trim()?i:-1).filter(i=>i>=0);k.a=k.a.filter(i=>keep.includes(i)).map(i=>keep.indexOf(i));k.o=keep.map(i=>k.o[i].trim());
+   if(!k.q.trim()||k.o.length<2||!k.a.length)return alert("Chaque question doit avoir un énoncé, au moins 2 réponses remplies et une bonne réponse cochée.")}
+  const row={title:E.title,level:E.level,timer:E.timer||0,qs:E.qs};
+  if(await run(E.id?sb.from("qcm").update(row).eq("id",E.id):sb.from("qcm").insert(row))){T.ed=null;await load()}else return}
+ else if(a=="cancel")T.ed=T.doc=null;
+ else if(a=="newd")T.doc={title:"",cat:"",body:"",url:""};
+ else if(a=="editd")T.doc={...T.docs.find(x=>x.id==id)};
+ else if(a=="saved"){const d=T.doc;if(!d.title.trim())return alert("Donnez un titre.");const row={title:d.title,cat:d.cat,body:d.body,url:d.url};
+  if(await run(d.id?sb.from("docs").update(row).eq("id",d.id):sb.from("docs").insert(row))){T.doc=null;await load()}else return}
+ else if(a=="deld"){if(confirm("Supprimer ce document ?")){await run(sb.from("docs").delete().eq("id",id));await load()}}
+ else return;
+ shell();
+});
+(async()=>{
+ if(!sb)return;
+ if(V.pid){try{const s=await rpc("session_status",{p_pid:V.pid});V.title=s.title;V.timer=s.timer||0;
+  if(!s.finished&&s.status=="lobby")return waitView();if(!s.finished&&s.status=="running")return startPlay()}catch(e){}
+  S.del("pid");V.pid=null}
+ home();
+})();
+</script>
+</body>
+</html>
