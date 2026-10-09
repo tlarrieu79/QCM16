@@ -146,7 +146,7 @@ function shell(){
  const pane=$("#pane");
  if(T.tab=="seances"){pane.innerHTML=`<h2>Nouvelle séance</h2><div class="card"><label>QCM</label><select id="ns-q">${T.qcms.map(q=>`<option value="${q.id}">${esc(q.title)}</option>`).join("")}</select>
   <label>Groupe ou stage</label><input id="ns-g" placeholder="Ex. PSE1 – Octobre"><button class="btn" data-a="launch" ${T.qcms.length?"":"disabled"}>Générer le code</button></div><h2>Mes séances</h2><div id="list"></div>`;drawList()}
- else if(T.tab=="qcm")pane.innerHTML=T.ed?editor():qlist();
+ else if(T.tab=="qcm")pane.innerHTML=T.ed?editor():T.gen?genForm():qlist();
  else pane.innerHTML=T.doc?docEd():docList();
 }
 const weak=th=>Object.entries(th||{}).filter(([k,v])=>v[0]/v[1]<.6).map(([k])=>k).join(", ");
@@ -168,7 +168,21 @@ function reviewHtml(rev,who){
   const m=c&&k?["✓",who+" (juste)","--ok"]:c?["✓","Bonne réponse oubliée","--ok"]:k?["✗",who+" (fausse)","--ko"]:["·","","--mute"];
   return`<div class="sm" style="display:flex;gap:8px;padding:3px 0;${c||k?"":"opacity:.65"}"><b style="color:var(${m[2]});width:1ch">${m[0]}</b><span>${esc(t)}${m[1]?` <b style="color:var(${m[2]})">· ${m[1]}</b>`:""}</span></div>`}).join("")}
  ${x.e?`<p class="sm mute" style="margin:6px 0 0">${esc(x.e)}</p>`:""}</div>`).join("")}
-function qlist(){return `<button class="btn" data-a="newq">Nouveau QCM</button>${T.qcms.map(q=>`<div class="card row"><div><b>${esc(q.title)}</b><br><span class="sm mute">${esc(q.level||"")} · ${q.qs.length} questions${q.timer?" · "+q.timer+" s/question":" · sans minuteur"}</span></div><div><button class="btn alt s" data-a="editq" data-id="${q.id}">Modifier</button><button class="btn alt s" data-a="dupq" data-id="${q.id}">Dupliquer</button><button class="btn del s" data-a="delq" data-id="${q.id}">Supprimer</button></div></div>`).join("")||`<p class="mute">Aucun QCM.</p>`}`}
+const pool=()=>T.qcms.filter(q=>!q.title.startsWith("🎲"));
+const preselect=l=>pool().filter(q=>l=="Tous"||q.level==l).map(q=>q.id);
+function gather(g){const seen=new Set();return pool().filter(q=>g.src.includes(q.id)).flatMap(q=>q.qs.map(k=>({...k,t:+k.t||+q.timer||0}))).filter(k=>{const x=k.q.trim().toLowerCase();if(seen.has(x))return false;seen.add(x);return true})}
+function genForm(){
+ const g=T.gen,n=gather(g).length;
+ return `<h2>QCM aléatoire</h2><p class="sm mute">Le site tire au hasard des questions dans les QCM cochés. Le résultat est un QCM normal que vous pourrez modifier ensuite.</p>
+ <div class="card"><label>Titre</label><input data-g="title" value="${esc(g.title)}">
+ <label>Niveau (présélectionne les QCM correspondants)</label><select data-g="level">${["PSE1","PSE2","Tous"].map(l=>`<option ${g.level==l?"selected":""}>${l}</option>`).join("")}</select>
+ <label>QCM sources</label>${pool().map(q=>`<div class="ans"><input type="checkbox" data-gs="${q.id}" ${g.src.includes(q.id)?"checked":""} aria-label="${esc(q.title)}"><span>${esc(q.title)} <span class="tag">${esc(q.level||"")} · ${q.qs.length} questions</span></span></div>`).join("")||`<p class="mute">Créez d'abord des QCM sources.</p>`}
+ <p class="sm"><b>${n} question(s) distincte(s) disponible(s)</b></p>
+ <label>Nombre de questions à tirer</label><input type="number" min="1" data-g="count" value="${g.count}">
+ <p class="sm mute" style="margin:0">Chaque question garde le temps défini dans son QCM d'origine (temps propre à la question, sinon temps par défaut du QCM).</p></div>
+ <button class="btn" data-a="gen" ${n?"":"disabled"}>Générer le QCM</button><button class="btn alt" data-a="cancel">Annuler</button>`;
+}
+function qlist(){return `<button class="btn" data-a="newq">Nouveau QCM</button><button class="btn alt" data-a="newgen">🎲 Créer un QCM aléatoire (tirage dans mes autres QCM)</button>${T.qcms.map(q=>`<div class="card row"><div><b>${esc(q.title)}</b><br><span class="sm mute">${esc(q.level||"")} · ${q.qs.length} questions${q.timer?" · "+q.timer+" s/question":" · sans minuteur"}</span></div><div><button class="btn alt s" data-a="editq" data-id="${q.id}">Modifier</button><button class="btn alt s" data-a="dupq" data-id="${q.id}">Dupliquer</button><button class="btn del s" data-a="delq" data-id="${q.id}">Supprimer</button></div></div>`).join("")||`<p class="mute">Aucun QCM.</p>`}`}
 function editor(){
  const e=T.ed;
  return `<div class="card"><label>Titre du QCM</label><input data-f="title" value="${esc(e.title)}"><label>Niveau</label><select data-f="level">${["PSE1","PSE2","PSE1 + PSE2"].map(l=>`<option ${e.level==l?"selected":""}>${l}</option>`).join("")}</select>
@@ -182,13 +196,18 @@ function editor(){
  <label>Thème (suivi des points faibles)</label><input data-i="${i}" data-k="th" value="${esc(k.th)}"></details></div>`).join("")}
  <button class="btn alt" data-a="addk">Ajouter une question</button><button class="btn" data-a="saveq">Enregistrer le QCM</button><button class="btn alt" data-a="cancel">Annuler</button>`;
 }
-function docList(){return `<button class="btn" data-a="newd">Ajouter un document</button>${T.docs.map(d=>`<div class="card"><div class="row"><div><b>${esc(d.title)}</b> ${d.cat?`<span class="tag">${esc(d.cat)}</span>`:""}</div><div><button class="btn alt s" data-a="editd" data-id="${d.id}">Modifier</button><button class="btn del s" data-a="deld" data-id="${d.id}">Supprimer</button></div></div><p class="pre sm" style="margin:8px 0 0">${esc(d.body)}</p>${d.url?`<a class="sm" href="${esc(d.url)}" target="_blank" rel="noopener">Ouvrir le lien</a>`:""}</div>`).join("")||`<p class="mute">Aucun document.</p>`}`}
-function docEd(){const d=T.doc;return `<div class="card"><label>Titre</label><input data-d="title" value="${esc(d.title)}"><label>Catégorie</label><input data-d="cat" value="${esc(d.cat)}"><label>Contenu</label><textarea rows="10" data-d="body">${esc(d.body)}</textarea><label>Lien (facultatif)</label><input data-d="url" value="${esc(d.url)}"></div><button class="btn" data-a="saved">Enregistrer</button><button class="btn alt" data-a="cancel">Annuler</button>`}
+function docList(){return `<button class="btn" data-a="newd">Ajouter un document</button>${T.docs.map(d=>`<div class="card"><div class="row"><div><b>${esc(d.title)}</b> ${d.cat?`<span class="tag">${esc(d.cat)}</span>`:""}</div><div><button class="btn alt s" data-a="editd" data-id="${d.id}">Modifier</button><button class="btn del s" data-a="deld" data-id="${d.id}">Supprimer</button></div></div><p class="pre sm" style="margin:8px 0 0">${esc(d.body)}</p>${d.url?`<a class="sm" href="${esc(d.url)}" target="_blank" rel="noopener">Ouvrir le lien</a><br>`:""}${d.file_path?`<button class="btn alt s" data-a="openf" data-id="${d.id}">📎 ${esc(d.file_name||"Fichier")}</button>`:""}</div>`).join("")||`<p class="mute">Aucun document.</p>`}`}
+function docEd(){const d=T.doc;return `<div class="card"><label>Titre</label><input data-d="title" value="${esc(d.title)}"><label>Catégorie</label><input data-d="cat" value="${esc(d.cat)}"><label>Contenu</label><textarea rows="10" data-d="body">${esc(d.body)}</textarea><label>Lien (facultatif)</label><input data-d="url" value="${esc(d.url)}">
+ <label>Fichier depuis votre appareil (PDF, Word, image…, 20 Mo maximum)</label>
+ ${d.file_path?`<p class="sm">📎 ${esc(d.file_name)} <button class="btn del s" data-a="rmf">Retirer</button></p><p class="sm mute">Choisir un autre fichier ci-dessous le remplacera.</p>`:""}
+ <input type="file" id="df"></div><button class="btn" data-a="saved">Enregistrer</button><button class="btn alt" data-a="cancel">Annuler</button>`}
 /* ---------- ÉVÉNEMENTS ---------- */
 const blankK=()=>({th:"",q:"",o:["","","",""],a:[],e:""});
 const run=async(p,ok)=>{const{error}=await p;if(error){alert("Action impossible : "+error.message);return false}return true};
 document.addEventListener("input",e=>{
  const t=e.target,E=T.ed;
+ if(T.gen){const g=T.gen;if(t.dataset.gs){g.src=t.checked?[...new Set([...g.src,t.dataset.gs])]:g.src.filter(x=>x!=t.dataset.gs);shell()}
+  else if(t.dataset.g){const f=t.dataset.g;g[f]=f=="count"||f=="timer"?Math.max(0,+t.value||0):t.value;if(f=="level"){g.src=preselect(g.level);shell()}}}
  if(E){if(t.dataset.f)E[t.dataset.f]=t.dataset.f=="timer"?Math.max(0,+t.value||0):t.value;
   else if(t.dataset.c!==undefined){const k=E.qs[+t.dataset.i],j=+t.dataset.c;k.a=t.checked?[...new Set([...k.a,j])]:k.a.filter(x=>x!=j)}
   else if(t.dataset.j!==undefined)E.qs[+t.dataset.i].o[+t.dataset.j]=t.value;
@@ -199,6 +218,10 @@ document.addEventListener("input",e=>{
 document.addEventListener("click",async e=>{
  const b=e.target.closest("[data-a]");if(!b)return;e.preventDefault();const a=b.dataset.a,id=b.dataset.id,P=V.P,E=T.ed;
  if(a=="home"){V.err="";return home()}
+ if(a=="openf"){const d=T.docs.find(x=>x.id==id),w=window.open("","_blank");
+  const{data,error}=await sb.storage.from("documents").createSignedUrl(d.file_path,3600);
+  if(error||!data){if(w)w.close();return alert("Fichier introuvable.")}
+  if(w)w.location.href=data.signedUrl;else location.href=data.signedUrl;return}
  if(a=="code"){const c=$("#cd").value.trim().toUpperCase();V.err="";
   try{const r=await rpc("check_code",{p_code:c});V.code=c;V.title=r.title;return nameView()}catch(x){V.err=msg(x);return home()}}
  if(a=="join"){const n=$("#nm").value.trim();V.name=n;V.err="";
@@ -209,7 +232,7 @@ document.addEventListener("click",async e=>{
  if(a=="signin"){const{error}=await sb.auth.signInWithPassword({email:$("#em").value.trim(),password:$("#pw").value});
   if(error){V.err="E-mail ou mot de passe incorrect.";return loginView()}V.err="";return trainer()}
  if(a=="signout"){await sb.auth.signOut();return home()}
- if(a=="tab"){T.tab=b.dataset.v;T.ed=T.doc=null;return shell()}
+ if(a=="tab"){T.tab=b.dataset.v;T.ed=T.doc=T.gen=null;return shell()}
  if(a=="launch"){const g=$("#ns-g").value.trim();if(!g)return alert("Indiquez un groupe.");
   if(await run(sb.from("sessions").insert({qcm_id:$("#ns-q").value,group_name:g})))await load();return shell()}
  if(a=="start"){if(!confirm("Lancer le QCM pour tous les stagiaires présents ?"))return;
@@ -233,12 +256,30 @@ document.addEventListener("click",async e=>{
    if(!k.q.trim()||k.o.length<2||!k.a.length)return alert("Chaque question doit avoir un énoncé, au moins 2 réponses remplies et une bonne réponse cochée.")}
   const row={title:E.title,level:E.level,timer:E.timer||0,qs:E.qs};
   if(await run(E.id?sb.from("qcm").update(row).eq("id",E.id):sb.from("qcm").insert(row))){T.ed=null;await load()}else return}
- else if(a=="cancel")T.ed=T.doc=null;
- else if(a=="newd")T.doc={title:"",cat:"",body:"",url:""};
- else if(a=="editd")T.doc={...T.docs.find(x=>x.id==id)};
- else if(a=="saved"){const d=T.doc;if(!d.title.trim())return alert("Donnez un titre.");const row={title:d.title,cat:d.cat,body:d.body,url:d.url};
-  if(await run(d.id?sb.from("docs").update(row).eq("id",d.id):sb.from("docs").insert(row))){T.doc=null;await load()}else return}
- else if(a=="deld"){if(confirm("Supprimer ce document ?")){await run(sb.from("docs").delete().eq("id",id));await load()}}
+ else if(a=="newgen")T.gen={title:"🎲 Examen blanc",level:"PSE1",count:20,src:preselect("PSE1")};
+ else if(a=="gen"){const g=T.gen,all=gather(g);let title=g.title.trim();
+  if(!title)return alert("Donnez un titre.");if(!all.length||g.count<1)return alert("Choisissez au moins un QCM source et un nombre de questions.");
+  const n=Math.min(g.count,all.length);if(n<g.count&&!confirm("Seulement "+all.length+" questions disponibles : le QCM en contiendra "+n+". Continuer ?"))return;
+  if(!title.startsWith("🎲"))title="🎲 "+title;
+  const qs=JSON.parse(JSON.stringify(shuffle(all).slice(0,n)));
+  if(await run(sb.from("qcm").insert({title,level:g.level=="Tous"?"PSE1 + PSE2":g.level,timer:0,qs}))){T.gen=null;await load();alert("QCM créé avec "+n+" questions tirées au hasard. Retrouvez-le dans la liste.")}else return}
+ else if(a=="cancel")T.ed=T.doc=T.gen=null;
+ else if(a=="newd")T.doc={title:"",cat:"",body:"",url:"",file_path:null,file_name:null};
+ else if(a=="editd"){T.doc={...T.docs.find(x=>x.id==id)};T.doc._orig=T.doc.file_path}
+ else if(a=="rmf")T.doc.file_path=T.doc.file_name=null;
+ else if(a=="saved"){const d=T.doc;if(!d.title.trim())return alert("Donnez un titre.");
+  const f=($("#df")||{}).files&&$("#df").files[0];if(f&&f.size>20*1024*1024)return alert("Fichier trop volumineux (20 Mo maximum).");
+  const label=b.textContent;b.disabled=true;
+  if(f){b.textContent="Envoi du fichier…";const path=Date.now()+"-"+f.name.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^A-Za-z0-9._-]+/g,"_");
+   const up=await sb.storage.from("documents").upload(path,f);
+   if(up.error){b.disabled=false;b.textContent=label;return alert("Envoi impossible : "+up.error.message)}
+   d.file_path=path;d.file_name=f.name}
+  const row={title:d.title,cat:d.cat,body:d.body,url:d.url,file_path:d.file_path||null,file_name:d.file_name||null};
+  const ok=await run(d.id?sb.from("docs").update(row).eq("id",d.id):sb.from("docs").insert(row));
+  if(!ok){b.disabled=false;b.textContent=label;return}
+  if(d._orig&&d._orig!=row.file_path)await sb.storage.from("documents").remove([d._orig]);
+  T.doc=null;await load()}
+ else if(a=="deld"){if(confirm("Supprimer ce document ?")){const d=T.docs.find(x=>x.id==id);await run(sb.from("docs").delete().eq("id",id));if(d&&d.file_path)await sb.storage.from("documents").remove([d.file_path]);await load()}}
  else return;
  shell();
 });
