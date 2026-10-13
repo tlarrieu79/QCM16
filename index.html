@@ -147,7 +147,7 @@ function shell(){
  const pane=$("#pane");
  if(T.tab=="seances"){pane.innerHTML=`<h2>Nouvelle séance</h2><div class="card"><label>QCM</label><select id="ns-q">${T.qcms.map(q=>`<option value="${q.id}">${esc(q.title)}</option>`).join("")}</select>
   <label>Groupe ou stage</label><input id="ns-g" placeholder="Ex. PSE1 – Octobre"><button class="btn" data-a="launch" ${T.qcms.length?"":"disabled"}>Générer le code</button></div><h2>Mes séances</h2><div id="list"></div>`;drawList()}
- else if(T.tab=="qcm")pane.innerHTML=T.ed?editor():T.gen?genForm():T.thm?themeMgr():qlist();
+ else if(T.tab=="qcm")pane.innerHTML=T.ed?editor():T.gen?genForm():T.thm?themeMgr():T.dup?dupView():qlist();
  else pane.innerHTML=T.doc?docEd():docList();
 }
 const weak=th=>Object.entries(th||{}).filter(([k,v])=>v[0]/v[1]<.6).map(([k])=>k).join(", ");
@@ -211,7 +211,23 @@ const sumText=qs=>sumList(qs).map(([n,v,p])=>n+" "+p+" %").join(" · ");
 const sumHtml=qs=>sumList(qs).map(([n,v,p])=>`<div class="sm" style="margin:6px 0"><div class="row"><span>${esc(n)}</span><b>${p} % <span class="mute">(${v})</span></b></div><div class="bar" style="height:6px"><i style="width:${p}%"></i></div></div>`).join("")||`<p class="sm mute">Aucune question.</p>`;
 const pool=()=>T.qcms.filter(q=>!q.title.startsWith("🎲"));
 const preselect=l=>pool().filter(q=>l=="Tous"||q.level==l).map(q=>q.id);
-function gather(g){const seen=new Set();return pool().filter(q=>g.src.includes(q.id)).flatMap(q=>q.qs.map(k=>({...k,t:+k.t||+q.timer||0}))).filter(k=>{const x=k.q.trim().toLowerCase();if(seen.has(x))return false;seen.add(x);return true})}
+const STOP=new Set("le la les un une des de du d l en et a au aux que qui quel quelle quels quelles est sont ce cette ces il on pour par sur dans vous je tu se sa son ses qu".split(" "));
+const words=t=>new Set(String(t||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").split(/[^a-z0-9]+/).filter(w=>w&&!STOP.has(w)));
+const sim=(a,b)=>{if(!a.size||!b.size)return 0;let n=0;a.forEach(w=>{if(b.has(w))n++});return n/(a.size+b.size-n)};
+const DUP=0.75;
+const allQ=()=>T.qcms.filter(q=>!q.title.startsWith("🎲")).flatMap(q=>q.qs.map((k,i)=>({id:q.id,title:q.title,i,k,w:words(k.q)})));
+function dupGroups(){const L=allQ(),p=L.map((_,i)=>i),f=x=>p[x]==x?x:(p[x]=f(p[x]));
+ for(let a=0;a<L.length;a++)for(let b=a+1;b<L.length;b++)if(sim(L[a].w,L[b].w)>=DUP)p[f(a)]=f(b);
+ const G={};L.forEach((m,i)=>(G[f(i)]=G[f(i)]||[]).push(m));return Object.values(G).filter(g=>g.length>1)}
+function dupWarn(i){const E=T.ed,w=words(E.qs[i].q);if(w.size<2)return"";const h=[];
+ allQ().forEach(m=>{if(m.id!=E.id&&sim(w,m.w)>=DUP)h.push("« "+m.title+" »")});
+ E.qs.forEach((k,j)=>{if(j!=i&&sim(w,words(k.q))>=DUP)h.push("la question "+(j+1)+" de ce QCM")});
+ return h.length?"⚠ Question très proche de : "+[...new Set(h)].slice(0,3).map(esc).join(", ")+".":""}
+function dupView(){const G=dupGroups();
+ return `<h2>Doublons</h2><p class="sm mute">Questions identiques ou très proches dans vos QCM. La comparaison porte sur le texte de la question, sans tenir compte des accents, de la ponctuation ni des petits mots.</p>
+ ${G.map(g=>`<div class="card">${g.map(m=>`<div class="row" style="margin-bottom:8px"><div class="sm"><b>${esc(m.title)}</b> <span class="mute">question ${m.i+1}</span><br>${esc(m.k.q)}</div><button class="btn del s" data-a="rmq" data-id="${m.id}" data-x="${m.i}">Retirer</button></div>`).join("")}</div>`).join("")||`<p>Aucun doublon détecté.</p>`}
+ <button class="btn alt" data-a="cancel">Retour</button>`}
+function gather(g){const kept=[];pool().filter(q=>g.src.includes(q.id)).forEach(q=>q.qs.forEach(k=>{const w=words(k.q);if(!kept.some(m=>sim(w,m.w)>=DUP))kept.push({...k,t:+k.t||+q.timer||0,w})}));return kept.map(({w,...k})=>k)}
 function genForm(){
  const g=T.gen,n=gather(g).length;
  return `<h2>QCM aléatoire</h2><p class="sm mute">Le site tire au hasard des questions dans les QCM cochés. Le résultat est un QCM normal que vous pourrez modifier ensuite.</p>
@@ -223,7 +239,7 @@ function genForm(){
  <p class="sm mute" style="margin:0">Chaque question garde le temps défini dans son QCM d'origine (temps propre à la question, sinon temps par défaut du QCM).</p></div>
  <button class="btn" data-a="gen" ${n?"":"disabled"}>Générer le QCM</button><button class="btn alt" data-a="cancel">Annuler</button>`;
 }
-function qlist(){return `<button class="btn" data-a="newq">Nouveau QCM</button><button class="btn alt" data-a="themes">Gérer les thèmes</button><button class="btn alt" data-a="newgen">🎲 Créer un QCM aléatoire (tirage dans mes autres QCM)</button>${T.qcms.map(q=>`<div class="card row"><div><b>${esc(q.title)}</b><br><span class="sm mute">${esc(q.level||"")} · ${q.qs.length} questions${q.timer?" · "+q.timer+" s/question":" · sans minuteur"}</span><br><span class="sm">${esc(sumText(q.qs))}</span></div><div><button class="btn alt s" data-a="editq" data-id="${q.id}">Modifier</button><button class="btn alt s" data-a="dupq" data-id="${q.id}">Dupliquer</button><button class="btn del s" data-a="delq" data-id="${q.id}">Supprimer</button></div></div>`).join("")||`<p class="mute">Aucun QCM.</p>`}`}
+function qlist(){return `<button class="btn" data-a="newq">Nouveau QCM</button><button class="btn alt" data-a="dups">Rechercher les doublons</button><button class="btn alt" data-a="themes">Gérer les thèmes</button><button class="btn alt" data-a="newgen">🎲 Créer un QCM aléatoire (tirage dans mes autres QCM)</button>${T.qcms.map(q=>`<div class="card row"><div><b>${esc(q.title)}</b><br><span class="sm mute">${esc(q.level||"")} · ${q.qs.length} questions${q.timer?" · "+q.timer+" s/question":" · sans minuteur"}</span><br><span class="sm">${esc(sumText(q.qs))}</span></div><div><button class="btn alt s" data-a="editq" data-id="${q.id}">Modifier</button><button class="btn alt s" data-a="dupq" data-id="${q.id}">Dupliquer</button><button class="btn del s" data-a="delq" data-id="${q.id}">Supprimer</button></div></div>`).join("")||`<p class="mute">Aucun QCM.</p>`}`}
 function editor(){
  const e=T.ed;
  return `<div class="card"><label>Titre du QCM</label><input data-f="title" value="${esc(e.title)}"><label>Niveau</label><select data-f="level">${["PSE1","PSE2","PSE1 + PSE2"].map(l=>`<option ${e.level==l?"selected":""}>${l}</option>`).join("")}</select>
@@ -231,6 +247,7 @@ function editor(){
  <div class="card"><b>Répartition par thème</b><div id="sum">${sumHtml(e.qs)}</div></div>
  ${e.qs.map((k,i)=>`<div class="card"><div class="row"><b>Question ${i+1}</b><button class="btn del s" data-a="delk" data-i="${i}">Retirer</button></div>
  <label>Question</label><textarea rows="2" data-i="${i}" data-k="q">${esc(k.q)}</textarea>
+ <div id="dup${i}" class="sm" style="color:var(--ko);margin-bottom:8px">${dupWarn(i)}</div>
  <label>Thème</label>${themeSel(i,k.th)}<label>Réponses : cochez la ou les bonnes</label>
  ${k.o.map((t,j)=>`<div class="ans"><input type="checkbox" data-i="${i}" data-c="${j}" ${k.a.includes(j)?"checked":""} aria-label="Bonne réponse ${j+1}"><input type="text" data-i="${i}" data-j="${j}" value="${esc(t)}" placeholder="Réponse ${j+1}"><button class="x" data-a="delo" data-i="${i}" data-j="${j}" aria-label="Retirer la réponse ${j+1}">✕</button></div>`).join("")}
  <button class="btn alt s" data-a="addo" data-i="${i}">+ Réponse</button>
@@ -253,7 +270,7 @@ document.addEventListener("input",async e=>{
  if(E){if(t.dataset.f)E[t.dataset.f]=t.dataset.f=="timer"?Math.max(0,+t.value||0):t.value;
   else if(t.dataset.c!==undefined){const k=E.qs[+t.dataset.i],j=+t.dataset.c;k.a=t.checked?[...new Set([...k.a,j])]:k.a.filter(x=>x!=j)}
   else if(t.dataset.j!==undefined)E.qs[+t.dataset.i].o[+t.dataset.j]=t.value;
-  else if(t.dataset.k){const f=t.dataset.k;if(f=="th"&&t.value=="__new")return newTheme(+t.dataset.i);E.qs[+t.dataset.i][f]=f=="t"?Math.max(0,+t.value||0):t.value;if(f=="th"){const el=$("#sum");if(el)el.innerHTML=sumHtml(E.qs)}}}
+  else if(t.dataset.k){const f=t.dataset.k;if(f=="th"&&t.value=="__new")return newTheme(+t.dataset.i);E.qs[+t.dataset.i][f]=f=="t"?Math.max(0,+t.value||0):t.value;if(f=="q"){const el=$("#dup"+t.dataset.i);if(el)el.innerHTML=dupWarn(+t.dataset.i)}if(f=="th"){const el=$("#sum");if(el)el.innerHTML=sumHtml(E.qs)}}}
  if(T.doc&&t.dataset.d)T.doc[t.dataset.d]=t.value;
  if(t.id=="cd")t.value=t.value.toUpperCase();
 });
@@ -274,7 +291,7 @@ document.addEventListener("click",async e=>{
  if(a=="signin"){const{error}=await sb.auth.signInWithPassword({email:$("#em").value.trim(),password:$("#pw").value});
   if(error){V.err="E-mail ou mot de passe incorrect.";return loginView()}V.err="";return trainer()}
  if(a=="signout"){await sb.auth.signOut();return home()}
- if(a=="tab"){T.tab=b.dataset.v;T.ed=T.doc=T.gen=T.thm=null;return shell()}
+ if(a=="tab"){T.tab=b.dataset.v;T.ed=T.doc=T.gen=T.thm=T.dup=null;return shell()}
  if(a=="launch"){const g=$("#ns-g").value.trim();if(!g)return alert("Indiquez un groupe.");
   if(await run(sb.from("sessions").insert({qcm_id:$("#ns-q").value,group_name:g})))await load();return shell()}
  if(a=="start"){if(!confirm("Lancer le QCM pour tous les stagiaires présents ?"))return;
@@ -296,6 +313,7 @@ document.addEventListener("click",async e=>{
   if(!E.title.trim())return alert("Donnez un titre au QCM.");
   for(const k of E.qs){const keep=k.o.map((x,i)=>x.trim()?i:-1).filter(i=>i>=0);k.a=k.a.filter(i=>keep.includes(i)).map(i=>keep.indexOf(i));k.o=keep.map(i=>k.o[i].trim());
    if(!k.q.trim()||k.o.length<2||!k.a.length)return alert("Chaque question doit avoir un énoncé, au moins 2 réponses remplies et une bonne réponse cochée.")}
+  if(E.qs.some((_,i)=>dupWarn(i))&&!confirm("Certaines questions ressemblent à des questions déjà présentes. Enregistrer quand même ?"))return;
   const row={title:E.title,level:E.level,timer:E.timer||0,qs:E.qs};
   if(await run(E.id?sb.from("qcm").update(row).eq("id",E.id):sb.from("qcm").insert(row))){T.ed=null;await load()}else return}
  else if(a=="newgen")T.gen={title:"🎲 Examen blanc",level:"PSE1",count:20,src:preselect("PSE1")};
@@ -306,12 +324,17 @@ document.addEventListener("click",async e=>{
   const qs=JSON.parse(JSON.stringify(shuffle(all).slice(0,n)));
   if(await run(sb.from("qcm").insert({title,level:g.level=="Tous"?"PSE1 + PSE2":g.level,timer:0,qs}))){T.gen=null;await load();alert("QCM créé avec "+n+" questions tirées au hasard.\nRépartition : "+sumText(qs))}else return}
  else if(a=="themes")T.thm=true;
+ else if(a=="dups")T.dup=true;
+ else if(a=="rmq"){const q=T.qcms.find(x=>x.id==id),x=+b.dataset.x;
+  if(q.qs.length<=1)return alert("Un QCM doit garder au moins une question.");
+  if(!confirm("Retirer cette question de « "+q.title+" » ?"))return;
+  if(await run(sb.from("qcm").update({qs:q.qs.filter((_,i)=>i!=x)}).eq("id",id)))await load();else return}
  else if(a=="addtheme"){const n=$("#nt").value.trim();if(!n)return;
   if(allThemes().some(x=>x.toLowerCase()==n.toLowerCase()))return alert("Ce thème existe déjà.");
   if(await run(sb.from("themes").insert({name:n})))await load();else return}
  else if(a=="rnth")await renameTheme(b.dataset.n);
  else if(a=="delth")await deleteTheme(b.dataset.n);
- else if(a=="cancel")T.ed=T.doc=T.gen=T.thm=null;
+ else if(a=="cancel")T.ed=T.doc=T.gen=T.thm=T.dup=null;
  else if(a=="newd")T.doc={title:"",cat:"",body:"",url:"",file_path:null,file_name:null};
  else if(a=="editd"){T.doc={...T.docs.find(x=>x.id==id)};T.doc._orig=T.doc.file_path}
  else if(a=="rmf")T.doc.file_path=T.doc.file_name=null;
