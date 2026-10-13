@@ -7,7 +7,7 @@
 <script>
 /* ===== À REMPLIR : gardez bien les guillemets " " autour des valeurs ===== */
 window.CFG={
-  url:"https://ywooqowudsgjsxqempcy.supabase.co",
+  url:"https://ywooqowudsgjsxqempcy.supabase.co"
   key:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3b29xb3d1ZHNnanN4cWVtcGN5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0NTk1OTAsImV4cCI6MjEwNzAzNTU5MH0.0NNJxfN7mkHh9gzkTPcdgqiuSGmq0b8LqrUazsK0Fnc"
 };
 /* ======================================================================== */
@@ -37,7 +37,7 @@ label{font-size:.85rem;color:var(--mute)}details summary{cursor:pointer;color:va
 .bar{height:8px;background:var(--line);border-radius:4px;overflow:hidden}.bar i{display:block;height:100%;background:var(--main)}
 .score{font-size:3rem;font-weight:800;line-height:1}.pre{white-space:pre-wrap}.code{font-size:1.7rem;letter-spacing:.2em;font-weight:800;color:var(--main)}
 .tag{display:inline-block;font-size:.75rem;padding:2px 8px;border-radius:99px;border:1px solid var(--line);color:var(--mute)}
-.qr svg{width:100%;height:auto;display:block}.bigin{font-size:1.8rem;text-align:center;letter-spacing:.3em;text-transform:uppercase}
+.qr svg{width:100%;height:auto;display:block}.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}.bigin{font-size:1.8rem;text-align:center;letter-spacing:.3em;text-transform:uppercase}
 </style>
 </head>
 <body>
@@ -64,7 +64,7 @@ const ERR={code_invalide:"Code inconnu. Vérifiez-le auprès de votre formateur.
 const rpc=async(n,a)=>{const{data,error}=await sb.rpc(n,a);if(error)throw new Error(error.message);return data};
 const msg=e=>ERR[e.message]||"Une erreur est survenue. Réessayez.";
 let V={pid:S.get("pid"),code:"",title:"",name:"",err:"",P:null,iv:null,timer:0};
-let T={tab:"seances",themeRows:[],thm:null,qcms:[],sessions:[],parts:[],docs:[],ed:null,doc:null,iv:null,sel:null};
+let T={tab:"seances",themeRows:[],thm:null,folder:null,open:null,sumTab:"th",qcms:[],sessions:[],parts:[],docs:[],ed:null,doc:null,iv:null,sel:null};
 const stop=()=>{clearInterval(V.iv);clearInterval(T.iv)};
 /* ---------- STAGIAIRE ---------- */
 function home(){
@@ -121,7 +121,7 @@ async function finish(){
  try{const r=await rpc("submit_answers",{p_pid:V.pid,p_ans:V.P.ans});S.del("pid");V.pid=null;
   app.innerHTML=`<p class="mute">Résultat</p><div class="score">${r.score}/${r.total}</div><p class="sm mute">Résultat transmis à votre formateur.</p>
   <p class="sm">${Object.entries(r.themes).map(([k,v])=>esc(k)+" "+v[0]+"/"+v[1]).join(" · ")}</p>
-  <h2>Vos réponses</h2>${reviewHtml(r.review,"Votre réponse")}
+  ${diffLine(r.review)?`<p class="sm mute">Par difficulté : ${diffLine(r.review)}</p>`:""}<h2>Vos réponses</h2>${reviewHtml(r.review,"Votre réponse")}
   <button class="btn" data-a="home">Terminer</button>`}
  catch(e){app.innerHTML=`<p>${esc(msg(e))}</p><button class="btn" data-a="home">Retour</button>`}
 }
@@ -145,7 +145,7 @@ function shell(){
  app.innerHTML=`<div class="row"><h1>Formateur</h1><button class="btn alt s" data-a="signout">Déconnexion</button></div>
  <div class="tabs">${N.map(([k,l])=>`<button data-a="tab" data-v="${k}" ${T.tab==k?'aria-current="true"':""}>${l}</button>`).join("")}</div><div id="pane"></div>`;
  const pane=$("#pane");
- if(T.tab=="seances"){pane.innerHTML=`<h2>Nouvelle séance</h2><div class="card"><label>QCM</label><select id="ns-q">${T.qcms.map(q=>`<option value="${q.id}">${esc(q.title)}</option>`).join("")}</select>
+ if(T.tab=="seances"){pane.innerHTML=`<h2>Nouvelle séance</h2><div class="card"><label>QCM</label><select id="ns-q">${qOpts()}</select>
   <label>Groupe ou stage</label><input id="ns-g" placeholder="Ex. PSE1 – Octobre"><button class="btn" data-a="launch" ${T.qcms.length?"":"disabled"}>Générer le code</button></div><h2>Mes séances</h2><div id="list"></div>`;drawList()}
  else if(T.tab=="qcm")pane.innerHTML=T.ed?editor():T.gen?genForm():T.thm?themeMgr():T.dup?dupView():qlist();
  else pane.innerHTML=T.doc?docEd():docList();
@@ -159,7 +159,7 @@ function drawList(){
   <div>${s.status=="lobby"?`<button class="btn s" data-a="start" data-id="${s.id}">Démarrer pour tous</button><button class="btn alt s" data-a="qr" data-id="${s.id}">${T.qr==s.id?"Masquer le QR code":"QR code"}</button>`:""}${s.status!="closed"?`<button class="btn alt s" data-a="endsess" data-id="${s.id}">${s.status=="lobby"?"Fermer":"Terminer"}</button>`:""}<button class="btn alt s" data-a="detail" data-id="${s.id}">Résultats</button><button class="btn del s" data-a="delsess" data-id="${s.id}">Supprimer</button></div>
   ${T.qr==s.id&&s.status=="lobby"?`<div style="margin-top:10px;text-align:center"><div class="qr" style="background:#fff;display:inline-block;padding:10px;border-radius:10px;width:min(100%,320px)">${qrSvg(joinLink(s.code))||`<p style="color:#000;margin:20px">QR code indisponible : donnez le code ou le lien.</p>`}</div><p class="sm" style="margin:8px 0 0">Scannez, puis saisissez votre nom.<br><span class="mute">${esc(joinLink(s.code))}</span></p></div>`:""}
   <p class="sm" style="margin:8px 0 0"><b>${pr.length} présent(s)</b>${s.status!="lobby"?` · ${fin.length} terminé(s)`:""}${avg!==null?` · moyenne ${avg} %`:""}${pr.length?" : "+pr.map(p=>esc(p.name)+(p.finished?" ✓":"")).join(", "):""}</p>
-  ${T.sel==s.id?`<div style="margin-top:8px">${fin.sort((a,b)=>a.score/a.total-b.score/b.total).map(p=>`<div class="sm" style="margin-bottom:6px"><div class="row"><span>${esc(p.name)}</span><b>${p.score}/${p.total} (${Math.round(p.score/p.total*100)} %)</b></div>${weak(p.themes)?`<span class="mute">À revoir : ${esc(weak(p.themes))}</span><br>`:""}<button class="btn alt s" data-a="pdet" data-id="${p.id}">${T.pd==p.id?"Masquer les réponses":"Voir les réponses"}</button>${T.pd==p.id?(p.review?reviewHtml(p.review,"Réponse du stagiaire"):`<p class="mute">Détail non disponible pour ce stagiaire.</p>`):""}</div>`).join("")||`<p class="sm mute">Aucun résultat pour l'instant.</p>`}</div>`:""}</div>`}).join("")||`<p class="mute">Aucune séance.</p>`;
+  ${T.sel==s.id?`<div style="margin-top:8px">${fin.sort((a,b)=>a.score/a.total-b.score/b.total).map(p=>`<div class="sm" style="margin-bottom:6px"><div class="row"><span>${esc(p.name)}</span><b>${p.score}/${p.total} (${Math.round(p.score/p.total*100)} %)</b></div>${weak(p.themes)?`<span class="mute">À revoir : ${esc(weak(p.themes))}</span><br>`:""}${diffLine(p.review)?`<span class="mute">Par difficulté : ${diffLine(p.review)}</span><br>`:""}<button class="btn alt s" data-a="pdet" data-id="${p.id}">${T.pd==p.id?"Masquer les réponses":"Voir les réponses"}</button>${T.pd==p.id?(p.review?reviewHtml(p.review,"Réponse du stagiaire"):`<p class="mute">Détail non disponible pour ce stagiaire.</p>`):""}</div>`).join("")||`<p class="sm mute">Aucun résultat pour l'instant.</p>`}</div>`:""}</div>`}).join("")||`<p class="mute">Aucune séance.</p>`;
 }
 function joinLink(c){return location.origin+location.pathname+"?code="+encodeURIComponent(c)}
 function qrSvg(u){try{if(typeof qrcode=="undefined")return"";const q=qrcode(0,"M");q.addData(u);q.make();return q.createSvgTag(6,2)}catch(e){return""}}
@@ -206,9 +206,14 @@ async function newTheme(i){
   T.ed.qs[i].th=ex||n;await load()}
  shell();
 }
-function sumList(qs){const c={};qs.forEach(k=>{const n=(k.th||"").trim()||"Sans thème";c[n]=(c[n]||0)+1});return Object.entries(c).sort((a,b)=>b[1]-a[1]).map(([n,v])=>[n,v,Math.round(v/qs.length*100)])}
-const sumText=qs=>sumList(qs).map(([n,v,p])=>n+" "+p+" %").join(" · ");
-const sumHtml=qs=>sumList(qs).map(([n,v,p])=>`<div class="sm" style="margin:6px 0"><div class="row"><span>${esc(n)}</span><b>${p} % <span class="mute">(${v})</span></b></div><div class="bar" style="height:6px"><i style="width:${p}%"></i></div></div>`).join("")||`<p class="sm mute">Aucune question.</p>`;
+const DL={facile:"Facile",moyen:"Moyen",difficile:"Difficile"},dOf=k=>DL[k.d]?k.d:"moyen";
+const FOL={"PSE1":"PSE1","PSE2":"PSE2","PSE1 + PSE2":"PSE 1/2"},FOLDERS=Object.keys(FOL),folderOf=q=>FOL[q.level]?q.level:"PSE1 + PSE2";
+function sumList(qs,by){const c={};qs.forEach(k=>{const n=by=="d"?DL[dOf(k)]:((k.th||"").trim()||"Sans thème");c[n]=(c[n]||0)+1});
+ const L=by=="d"?["Facile","Moyen","Difficile"].filter(x=>c[x]).map(x=>[x,c[x]]):Object.entries(c).sort((a,b)=>b[1]-a[1]);return L.map(([n,v])=>[n,v,Math.round(v/qs.length*100)])}
+const sumText=(qs,by)=>sumList(qs,by).map(([n,v,p])=>n+" "+p+" %").join(" · ");
+const sumHtml=(qs,by)=>sumList(qs,by).map(([n,v,p])=>`<div class="sm" style="margin:6px 0"><div class="row"><span>${esc(n)}</span><b>${p} % <span class="mute">(${v})</span></b></div><div class="bar" style="height:6px"><i style="width:${p}%"></i></div></div>`).join("")||`<p class="sm mute">Aucune question.</p>`;
+const diffLine=rev=>{if(!rev||!rev.some(x=>x.d))return"";const c={};rev.forEach(x=>{const n=DL[x.d]||"Moyen";(c[n]=c[n]||[0,0])[1]++;if(x.good)c[n][0]++});return["Facile","Moyen","Difficile"].filter(n=>c[n]).map(n=>n+" "+c[n][0]+"/"+c[n][1]).join(" · ")};
+const qOpts=()=>FOLDERS.map(f=>{const L=T.qcms.filter(q=>folderOf(q)==f);return L.length?`<optgroup label="${FOL[f]}">${L.map(q=>`<option value="${q.id}">${esc(q.title)}</option>`).join("")}</optgroup>`:""}).join("");
 const pool=()=>T.qcms.filter(q=>!q.title.startsWith("🎲"));
 const preselect=l=>pool().filter(q=>l=="Tous"||q.level==l).map(q=>q.id);
 const STOP=new Set("le la les un une des de du d l en et a au aux que qui quel quelle quels quelles est sont ce cette ces il on pour par sur dans vous je tu se sa son ses qu".split(" "));
@@ -227,6 +232,16 @@ function dupView(){const G=dupGroups();
  return `<h2>Doublons</h2><p class="sm mute">Questions identiques ou très proches dans vos QCM. La comparaison porte sur le texte de la question, sans tenir compte des accents, de la ponctuation ni des petits mots.</p>
  ${G.map(g=>`<div class="card">${g.map(m=>`<div class="row" style="margin-bottom:8px"><div class="sm"><b>${esc(m.title)}</b> <span class="mute">question ${m.i+1}</span><br>${esc(m.k.q)}</div><button class="btn del s" data-a="rmq" data-id="${m.id}" data-x="${m.i}">Retirer</button></div>`).join("")}</div>`).join("")||`<p>Aucun doublon détecté.</p>`}
  <button class="btn alt" data-a="cancel">Retour</button>`}
+function draw(all,g){
+ if(g.mix=="alea")return{picks:shuffle(all).slice(0,g.count),fill:0};
+ const by={facile:[],moyen:[],difficile:[]};shuffle(all).forEach(k=>by[dOf(k)].push(k));
+ let tg;if(g.mix=="perso")tg=[g.nf,g.nm,g.nd];
+ else{const N=g.count;tg=({equi:[1/3,1/3,1/3],facile:[.5,.3,.2],dur:[.2,.3,.5]})[g.mix].map(x=>Math.floor(N*x));tg[1]+=N-tg.reduce((a,b)=>a+b,0)}
+ const ks=["facile","moyen","difficile"],picks=[];let miss=0;
+ ks.forEach((k,i)=>{const take=by[k].splice(0,tg[i]);picks.push(...take);miss+=tg[i]-take.length});
+ const fill=shuffle(ks.flatMap(k=>by[k])).slice(0,miss);
+ return{picks:shuffle([...picks,...fill]),fill:fill.length}
+}
 function gather(g){const kept=[];pool().filter(q=>g.src.includes(q.id)).forEach(q=>q.qs.forEach(k=>{const w=words(k.q);if(!kept.some(m=>sim(w,m.w)>=DUP))kept.push({...k,t:+k.t||+q.timer||0,w})}));return kept.map(({w,...k})=>k)}
 function genForm(){
  const g=T.gen,n=gather(g).length;
@@ -234,25 +249,36 @@ function genForm(){
  <div class="card"><label>Titre</label><input data-g="title" value="${esc(g.title)}">
  <label>Niveau (présélectionne les QCM correspondants)</label><select data-g="level">${["PSE1","PSE2","Tous"].map(l=>`<option ${g.level==l?"selected":""}>${l}</option>`).join("")}</select>
  <label>QCM sources</label>${pool().map(q=>`<div class="ans"><input type="checkbox" data-gs="${q.id}" ${g.src.includes(q.id)?"checked":""} aria-label="${esc(q.title)}"><span>${esc(q.title)} <span class="tag">${esc(q.level||"")} · ${q.qs.length} questions</span></span></div>`).join("")||`<p class="mute">Créez d'abord des QCM sources.</p>`}
- <p class="sm"><b>${n} question(s) distincte(s) disponible(s)</b></p>${n?`<label>Répartition par thème des questions disponibles</label>${sumHtml(gather(g))}`:""}
- <label>Nombre de questions à tirer</label><input type="number" min="1" data-g="count" value="${g.count}">
+ <p class="sm"><b>${n} question(s) distincte(s) disponible(s)</b></p>${n?`<details><summary>Répartition des questions disponibles</summary>${sumHtml(gather(g))}<hr style="border:0;border-top:1px solid var(--line)">${sumHtml(gather(g),"d")}</details>`:""}
+ <label>Mélange de difficultés</label><select data-g="mix">${[["alea","Aléatoire (sans contrainte)"],["equi","Équilibré"],["facile","Plutôt facile"],["dur","Plutôt difficile"],["perso","Personnalisé"]].map(([v,l])=>`<option value="${v}" ${g.mix==v?"selected":""}>${l}</option>`).join("")}</select>
+ ${g.mix=="perso"?`<div class="two" style="grid-template-columns:repeat(3,1fr)"><div><label>Faciles</label><input type="number" min="0" data-g="nf" value="${g.nf}"></div><div><label>Moyennes</label><input type="number" min="0" data-g="nm" value="${g.nm}"></div><div><label>Difficiles</label><input type="number" min="0" data-g="nd" value="${g.nd}"></div></div>`:`<label>Nombre de questions à tirer</label><input type="number" min="1" data-g="count" value="${g.count}">`}
  <p class="sm mute" style="margin:0">Chaque question garde le temps défini dans son QCM d'origine (temps propre à la question, sinon temps par défaut du QCM).</p></div>
  <button class="btn" data-a="gen" ${n?"":"disabled"}>Générer le QCM</button><button class="btn alt" data-a="cancel">Annuler</button>`;
 }
-function qlist(){return `<button class="btn" data-a="newq">Nouveau QCM</button><button class="btn alt" data-a="dups">Rechercher les doublons</button><button class="btn alt" data-a="themes">Gérer les thèmes</button><button class="btn alt" data-a="newgen">🎲 Créer un QCM aléatoire (tirage dans mes autres QCM)</button>${T.qcms.map(q=>`<div class="card row"><div><b>${esc(q.title)}</b><br><span class="sm mute">${esc(q.level||"")} · ${q.qs.length} questions${q.timer?" · "+q.timer+" s/question":" · sans minuteur"}</span><br><span class="sm">${esc(sumText(q.qs))}</span></div><div><button class="btn alt s" data-a="editq" data-id="${q.id}">Modifier</button><button class="btn alt s" data-a="dupq" data-id="${q.id}">Dupliquer</button><button class="btn del s" data-a="delq" data-id="${q.id}">Supprimer</button></div></div>`).join("")||`<p class="mute">Aucun QCM.</p>`}`}
-function editor(){
- const e=T.ed;
- return `<div class="card"><label>Titre du QCM</label><input data-f="title" value="${esc(e.title)}"><label>Niveau</label><select data-f="level">${["PSE1","PSE2","PSE1 + PSE2"].map(l=>`<option ${e.level==l?"selected":""}>${l}</option>`).join("")}</select>
- <label>Temps par question en secondes (0 = sans limite)</label><input type="number" min="0" data-f="timer" value="${e.timer||0}"></div>
- <div class="card"><b>Répartition par thème</b><div id="sum">${sumHtml(e.qs)}</div></div>
- ${e.qs.map((k,i)=>`<div class="card"><div class="row"><b>Question ${i+1}</b><button class="btn del s" data-a="delk" data-i="${i}">Retirer</button></div>
+function qcard(q){return `<div class="card row"><div><b>${esc(q.title)}</b><br><span class="sm mute">${q.qs.length} questions${q.timer?" · "+q.timer+" s/question":" · sans minuteur"}</span><br><span class="sm">${esc(sumText(q.qs))}</span></div><div><button class="btn alt s" data-a="editq" data-id="${q.id}">Modifier</button><button class="btn alt s" data-a="dupq" data-id="${q.id}">Dupliquer</button><button class="btn del s" data-a="delq" data-id="${q.id}">Supprimer</button></div></div>`}
+const tools=()=>`<details class="card"><summary style="margin:0">Outils</summary><button class="btn alt" data-a="newgen">🎲 QCM aléatoire</button><button class="btn alt" data-a="dups">Rechercher les doublons</button><button class="btn alt" data-a="themes">Gérer les thèmes</button></details>`;
+function qlist(){
+ const f=T.folder;
+ if(!f)return `<button class="btn" data-a="newq">+ Nouveau QCM</button>${tools()}<h2>Dossiers</h2>${FOLDERS.map(x=>`<button class="opt" data-a="openfol" data-v="${x}"><b>📁 ${FOL[x]}</b> <span class="mute sm">· ${T.qcms.filter(q=>folderOf(q)==x).length} QCM</span></button>`).join("")}`;
+ return `<button class="btn alt s" data-a="backfol">← Dossiers</button><h2>📁 ${FOL[f]}</h2><button class="btn" data-a="newq">+ Nouveau QCM dans ce dossier</button>${tools()}${T.qcms.filter(q=>folderOf(q)==f).map(qcard).join("")||`<p class="mute">Dossier vide.</p>`}`;
+}
+function qMini(k,i){return `<div class="card row"><div class="sm" style="flex:1;min-width:0"><b>${i+1}.</b> ${esc((k.q||"(question vide)").slice(0,80))}<br><span class="tag">${esc((k.th||"").trim()||"Sans thème")}</span> <span class="tag">${DL[dOf(k)]}</span></div><div><button class="btn alt s" data-a="openk" data-i="${i}">Modifier</button><button class="btn del s" data-a="delk" data-i="${i}">Retirer</button></div></div>`}
+function qFull(k,i){return `<div class="card"><div class="row"><b>Question ${i+1}</b><span><button class="btn alt s" data-a="openk" data-i="${i}">Réduire</button><button class="btn del s" data-a="delk" data-i="${i}">Retirer</button></span></div>
  <label>Question</label><textarea rows="2" data-i="${i}" data-k="q">${esc(k.q)}</textarea>
  <div id="dup${i}" class="sm" style="color:var(--ko);margin-bottom:8px">${dupWarn(i)}</div>
- <label>Thème</label>${themeSel(i,k.th)}<label>Réponses : cochez la ou les bonnes</label>
+ <div class="two"><div><label>Thème</label>${themeSel(i,k.th)}</div><div><label>Difficulté</label><select data-i="${i}" data-k="d">${Object.entries(DL).map(([v,l])=>`<option value="${v}" ${dOf(k)==v?"selected":""}>${l}</option>`).join("")}</select></div></div>
+ <label>Réponses : cochez la ou les bonnes</label>
  ${k.o.map((t,j)=>`<div class="ans"><input type="checkbox" data-i="${i}" data-c="${j}" ${k.a.includes(j)?"checked":""} aria-label="Bonne réponse ${j+1}"><input type="text" data-i="${i}" data-j="${j}" value="${esc(t)}" placeholder="Réponse ${j+1}"><button class="x" data-a="delo" data-i="${i}" data-j="${j}" aria-label="Retirer la réponse ${j+1}">✕</button></div>`).join("")}
  <button class="btn alt s" data-a="addo" data-i="${i}">+ Réponse</button>
- <details><summary>Options (explication, temps, thème)</summary><label>Explication affichée à la fin</label><textarea rows="2" data-i="${i}" data-k="e">${esc(k.e)}</textarea>
- <label>Temps pour cette question en secondes (vide = temps du QCM)</label><input type="number" min="0" data-i="${i}" data-k="t" value="${k.t||""}"></details></div>`).join("")}
+ <details><summary>Options (explication, temps)</summary><label>Explication affichée à la fin</label><textarea rows="2" data-i="${i}" data-k="e">${esc(k.e)}</textarea>
+ <label>Temps pour cette question en secondes (vide = temps du QCM)</label><input type="number" min="0" data-i="${i}" data-k="t" value="${k.t||""}"></details></div>`}
+function editor(){
+ const e=T.ed;
+ return `<div class="card"><label>Titre du QCM</label><input data-f="title" value="${esc(e.title)}">
+ <div class="two"><div><label>Dossier</label><select data-f="level">${FOLDERS.map(l=>`<option value="${l}" ${e.level==l?"selected":""}>${FOL[l]}</option>`).join("")}</select></div>
+ <div><label>Temps par question (s, 0 = sans limite)</label><input type="number" min="0" data-f="timer" value="${e.timer||0}"></div></div></div>
+ <div class="card"><div class="row"><b>Répartition</b><span><button class="btn ${T.sumTab=="d"?"alt":""} s" data-a="sumtab" data-v="th">Thèmes</button><button class="btn ${T.sumTab=="d"?"":"alt"} s" data-a="sumtab" data-v="d">Difficulté</button></span></div><div id="sum">${sumHtml(e.qs,T.sumTab)}</div></div>
+ ${e.qs.map((k,i)=>T.open===i?qFull(k,i):qMini(k,i)).join("")}
  <button class="btn alt" data-a="addk">Ajouter une question</button><button class="btn" data-a="saveq">Enregistrer le QCM</button><button class="btn alt" data-a="cancel">Annuler</button>`;
 }
 function docList(){return `<button class="btn" data-a="newd">Ajouter un document</button>${T.docs.map(d=>`<div class="card"><div class="row"><div><b>${esc(d.title)}</b> ${d.cat?`<span class="tag">${esc(d.cat)}</span>`:""}</div><div><button class="btn alt s" data-a="editd" data-id="${d.id}">Modifier</button><button class="btn del s" data-a="deld" data-id="${d.id}">Supprimer</button></div></div><p class="pre sm" style="margin:8px 0 0">${esc(d.body)}</p>${d.url?`<a class="sm" href="${esc(d.url)}" target="_blank" rel="noopener">Ouvrir le lien</a><br>`:""}${d.file_path?`<button class="btn alt s" data-a="openf" data-id="${d.id}">📎 ${esc(d.file_name||"Fichier")}</button>`:""}</div>`).join("")||`<p class="mute">Aucun document.</p>`}`}
@@ -261,16 +287,16 @@ function docEd(){const d=T.doc;return `<div class="card"><label>Titre</label><in
  ${d.file_path?`<p class="sm">📎 ${esc(d.file_name)} <button class="btn del s" data-a="rmf">Retirer</button></p><p class="sm mute">Choisir un autre fichier ci-dessous le remplacera.</p>`:""}
  <input type="file" id="df"></div><button class="btn" data-a="saved">Enregistrer</button><button class="btn alt" data-a="cancel">Annuler</button>`}
 /* ---------- ÉVÉNEMENTS ---------- */
-const blankK=()=>({th:"",q:"",o:["","","",""],a:[],e:""});
+const blankK=()=>({th:"",q:"",o:["","","",""],a:[],e:"",d:"moyen"});
 const run=async(p,ok)=>{const{error}=await p;if(error){alert("Action impossible : "+error.message);return false}return true};
 document.addEventListener("input",async e=>{
  const t=e.target,E=T.ed;
  if(T.gen){const g=T.gen;if(t.dataset.gs){g.src=t.checked?[...new Set([...g.src,t.dataset.gs])]:g.src.filter(x=>x!=t.dataset.gs);shell()}
-  else if(t.dataset.g){const f=t.dataset.g;g[f]=f=="count"||f=="timer"?Math.max(0,+t.value||0):t.value;if(f=="level"){g.src=preselect(g.level);shell()}}}
+  else if(t.dataset.g){const f=t.dataset.g;g[f]=["count","timer","nf","nm","nd"].includes(f)?Math.max(0,+t.value||0):t.value;if(f=="level"){g.src=preselect(g.level);shell()}if(f=="mix")shell()}}
  if(E){if(t.dataset.f)E[t.dataset.f]=t.dataset.f=="timer"?Math.max(0,+t.value||0):t.value;
   else if(t.dataset.c!==undefined){const k=E.qs[+t.dataset.i],j=+t.dataset.c;k.a=t.checked?[...new Set([...k.a,j])]:k.a.filter(x=>x!=j)}
   else if(t.dataset.j!==undefined)E.qs[+t.dataset.i].o[+t.dataset.j]=t.value;
-  else if(t.dataset.k){const f=t.dataset.k;if(f=="th"&&t.value=="__new")return newTheme(+t.dataset.i);E.qs[+t.dataset.i][f]=f=="t"?Math.max(0,+t.value||0):t.value;if(f=="q"){const el=$("#dup"+t.dataset.i);if(el)el.innerHTML=dupWarn(+t.dataset.i)}if(f=="th"){const el=$("#sum");if(el)el.innerHTML=sumHtml(E.qs)}}}
+  else if(t.dataset.k){const f=t.dataset.k;if(f=="th"&&t.value=="__new")return newTheme(+t.dataset.i);E.qs[+t.dataset.i][f]=f=="t"?Math.max(0,+t.value||0):t.value;if(f=="q"){const el=$("#dup"+t.dataset.i);if(el)el.innerHTML=dupWarn(+t.dataset.i)}if(f=="th"||f=="d"){const el=$("#sum");if(el)el.innerHTML=sumHtml(E.qs,T.sumTab)}}}
  if(T.doc&&t.dataset.d)T.doc[t.dataset.d]=t.value;
  if(t.id=="cd")t.value=t.value.toUpperCase();
 });
@@ -301,12 +327,16 @@ document.addEventListener("click",async e=>{
  if(a=="qr"){T.qr=T.qr==id?null:id;return drawList()}
  if(a=="detail"){T.sel=T.sel==id?null:id;return drawList()}
  if(a=="delsess"){if(confirm("Supprimer cette séance et ses résultats ?")){await run(sb.from("sessions").delete().eq("id",id));await load();drawList()}return}
- if(a=="newq")T.ed={title:"",level:"PSE1",timer:0,qs:[blankK()]};
- else if(a=="editq")T.ed=JSON.parse(JSON.stringify(T.qcms.find(x=>x.id==id)));
+ if(a=="newq"){T.ed={title:"",level:T.folder||"PSE1",timer:0,qs:[blankK()]};T.open=0;T.sumTab="th"}
+ else if(a=="editq"){T.ed=JSON.parse(JSON.stringify(T.qcms.find(x=>x.id==id)));T.ed.level=folderOf(T.ed);T.open=null;T.sumTab="th"}
+ else if(a=="openk")T.open=T.open===+b.dataset.i?null:+b.dataset.i;
+ else if(a=="sumtab")T.sumTab=b.dataset.v;
+ else if(a=="openfol")T.folder=b.dataset.v;
+ else if(a=="backfol")T.folder=null;
  else if(a=="dupq"){const q=T.qcms.find(x=>x.id==id);await run(sb.from("qcm").insert({title:q.title+" (copie)",level:q.level,timer:q.timer,qs:q.qs}));await load()}
  else if(a=="delq"){if(confirm("Supprimer ce QCM ?")){await run(sb.from("qcm").delete().eq("id",id));await load()}}
- else if(a=="addk")E.qs.push(blankK());
- else if(a=="delk")E.qs.splice(+b.dataset.i,1);
+ else if(a=="addk"){E.qs.push(blankK());T.open=E.qs.length-1}
+ else if(a=="delk"){E.qs.splice(+b.dataset.i,1);T.open=null}
  else if(a=="addo")E.qs[+b.dataset.i].o.push("");
  else if(a=="delo"){const k=E.qs[+b.dataset.i],j=+b.dataset.j;k.o.splice(j,1);k.a=k.a.filter(x=>x!=j).map(x=>x>j?x-1:x)}
  else if(a=="saveq"){
@@ -316,13 +346,15 @@ document.addEventListener("click",async e=>{
   if(E.qs.some((_,i)=>dupWarn(i))&&!confirm("Certaines questions ressemblent à des questions déjà présentes. Enregistrer quand même ?"))return;
   const row={title:E.title,level:E.level,timer:E.timer||0,qs:E.qs};
   if(await run(E.id?sb.from("qcm").update(row).eq("id",E.id):sb.from("qcm").insert(row))){T.ed=null;await load()}else return}
- else if(a=="newgen")T.gen={title:"🎲 Examen blanc",level:"PSE1",count:20,src:preselect("PSE1")};
+ else if(a=="newgen")T.gen={title:"🎲 Examen blanc",level:"PSE1",count:20,mix:"alea",nf:5,nm:5,nd:2,src:preselect("PSE1")};
  else if(a=="gen"){const g=T.gen,all=gather(g);let title=g.title.trim();
-  if(!title)return alert("Donnez un titre.");if(!all.length||g.count<1)return alert("Choisissez au moins un QCM source et un nombre de questions.");
-  const n=Math.min(g.count,all.length);if(n<g.count&&!confirm("Seulement "+all.length+" questions disponibles : le QCM en contiendra "+n+". Continuer ?"))return;
+  const want=g.mix=="perso"?g.nf+g.nm+g.nd:g.count;
+  if(!title)return alert("Donnez un titre.");if(!all.length||want<1)return alert("Choisissez au moins un QCM source et un nombre de questions.");
+  const d=draw(all,g),n=d.picks.length;
+  if(n<want&&!confirm("Seulement "+n+" questions disponibles sur "+want+" demandées. Continuer avec "+n+" ?"))return;
   if(!title.startsWith("🎲"))title="🎲 "+title;
-  const qs=JSON.parse(JSON.stringify(shuffle(all).slice(0,n)));
-  if(await run(sb.from("qcm").insert({title,level:g.level=="Tous"?"PSE1 + PSE2":g.level,timer:0,qs}))){T.gen=null;await load();alert("QCM créé avec "+n+" questions tirées au hasard.\nRépartition : "+sumText(qs))}else return}
+  const qs=JSON.parse(JSON.stringify(d.picks));
+  if(await run(sb.from("qcm").insert({title,level:g.level=="Tous"?"PSE1 + PSE2":g.level,timer:0,qs}))){T.gen=null;await load();alert("QCM créé avec "+n+" questions.\nThèmes : "+sumText(qs)+"\nDifficulté : "+sumText(qs,"d")+(d.fill?"\n("+d.fill+" question(s) prise(s) dans un autre niveau, faute de questions au niveau demandé.)":""))}else return}
  else if(a=="themes")T.thm=true;
  else if(a=="dups")T.dup=true;
  else if(a=="rmq"){const q=T.qcms.find(x=>x.id==id),x=+b.dataset.x;
