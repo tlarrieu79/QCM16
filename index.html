@@ -174,10 +174,31 @@ const themeUse=n=>T.qcms.reduce((a,q)=>a+q.qs.filter(k=>(k.th||"").trim()==n).le
 function themeMgr(){
  return `<h2>Thèmes</h2><p class="sm mute">Ces thèmes sont proposés dans l'éditeur de questions et servent au suivi des points faibles.</p>
  <div class="card"><label>Nouveau thème</label><input id="nt" placeholder="Ex. Hémorragies"><button class="btn" data-a="addtheme">Ajouter</button></div>
- ${allThemes().map(n=>{const r=T.themeRows.find(x=>x.name==n);return`<div class="card row"><div><b>${esc(n)}</b><br><span class="sm mute">${themeUse(n)} question(s)</span></div>${r?`<button class="btn del s" data-a="deltheme" data-id="${r.id}">Supprimer</button>`:`<span class="tag">issu des questions</span>`}</div>`}).join("")||`<p class="mute">Aucun thème.</p>`}
+ ${allThemes().map(n=>{return`<div class="card row"><div><b>${esc(n)}</b><br><span class="sm mute">${themeUse(n)} question(s)</span></div><div><button class="btn alt s" data-a="rnth" data-n="${esc(n)}">Renommer</button><button class="btn del s" data-a="delth" data-n="${esc(n)}">Supprimer</button></div></div>`}).join("")||`<p class="mute">Aucun thème.</p>`}
  <button class="btn alt" data-a="cancel">Retour</button>`;
 }
 const themeSel=(i,cur)=>`<select data-i="${i}" data-k="th"><option value="">— Aucun thème —</option>${[...new Set([...allThemes(),...(cur?[cur]:[])])].sort((a,b)=>a.localeCompare(b,"fr")).map(n=>`<option ${n==cur?"selected":""}>${esc(n)}</option>`).join("")}<option value="__new">➕ Nouveau thème…</option></select>`;
+async function remap(old,to){
+ for(const q of T.qcms){if(!q.qs.some(k=>(k.th||"").trim()==old))continue;
+  const qs=q.qs.map(k=>(k.th||"").trim()==old?{...k,th:to}:k);
+  const{error}=await sb.from("qcm").update({qs}).eq("id",q.id);
+  if(error){alert("Mise à jour impossible : "+error.message);return false}}
+ return true}
+async function renameTheme(old){
+ const n=(prompt("Nouveau nom du thème :",old)||"").trim();if(!n||n==old)return;
+ const ex=allThemes().find(x=>x!=old&&x.toLowerCase()==n.toLowerCase());
+ if(ex&&!confirm("« "+ex+" » existe déjà. Fusionner « "+old+" » dans « "+ex+" » ?"))return;
+ const to=ex||n;if(!await remap(old,to))return;
+ const has=T.themeRows.find(x=>x.name==old);
+ if(has){if(ex)await sb.from("themes").delete().eq("id",has.id);else await sb.from("themes").update({name:to}).eq("id",has.id)}
+ else if(!ex)await sb.from("themes").insert({name:to});
+ await load()}
+async function deleteTheme(n){
+ const u=themeUse(n);
+ if(!confirm(u?"« "+n+" » est utilisé par "+u+" question(s). Elles n'auront plus de thème. Supprimer ?":"Supprimer le thème « "+n+" » ?"))return;
+ if(u&&!await remap(n,""))return;
+ const r=T.themeRows.find(x=>x.name==n);if(r)await sb.from("themes").delete().eq("id",r.id);
+ await load()}
 async function newTheme(i){
  const n=(prompt("Nom du nouveau thème :")||"").trim();
  if(n){const ex=allThemes().find(x=>x.toLowerCase()==n.toLowerCase());
@@ -284,7 +305,8 @@ document.addEventListener("click",async e=>{
  else if(a=="addtheme"){const n=$("#nt").value.trim();if(!n)return;
   if(allThemes().some(x=>x.toLowerCase()==n.toLowerCase()))return alert("Ce thème existe déjà.");
   if(await run(sb.from("themes").insert({name:n})))await load();else return}
- else if(a=="deltheme"){if(confirm("Retirer ce thème de la liste ? Les questions qui l'utilisent le conservent.")){await run(sb.from("themes").delete().eq("id",id));await load()}}
+ else if(a=="rnth")await renameTheme(b.dataset.n);
+ else if(a=="delth")await deleteTheme(b.dataset.n);
  else if(a=="cancel")T.ed=T.doc=T.gen=T.thm=null;
  else if(a=="newd")T.doc={title:"",cat:"",body:"",url:"",file_path:null,file_name:null};
  else if(a=="editd"){T.doc={...T.docs.find(x=>x.id==id)};T.doc._orig=T.doc.file_path}
