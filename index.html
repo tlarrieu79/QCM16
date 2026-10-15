@@ -60,7 +60,7 @@ const $=s=>document.querySelector(s),app=$("#app");
 const esc=t=>String(t??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
 const fmt=t=>new Date(t).toLocaleDateString("fr-FR");
-const ERR={code_invalide:"Code inconnu. Vérifiez-le auprès de votre formateur.",deja_demarre:"Ce QCM a déjà démarré : vous ne pouvez plus le rejoindre.",nom_invalide:"Indiquez votre prénom et votre nom.",pas_demarre:"Le QCM n'a pas encore démarré.",deja_termine:"Vous avez déjà terminé ce QCM."};
+const ERR={aucune_question:"Aucune question disponible pour ce niveau.",nombre_invalide:"Nombre de questions invalide (de 1 à 100).",groupe_invalide:"Indiquez un groupe.",code_invalide:"Code inconnu. Vérifiez-le auprès de votre formateur.",deja_demarre:"Ce QCM a déjà démarré : vous ne pouvez plus le rejoindre.",nom_invalide:"Indiquez votre prénom et votre nom.",pas_demarre:"Le QCM n'a pas encore démarré.",deja_termine:"Vous avez déjà terminé ce QCM."};
 const rpc=async(n,a)=>{const{data,error}=await sb.rpc(n,a);if(error)throw new Error(error.message);return data};
 const msg=e=>ERR[e.message]||"Une erreur est survenue. Réessayez.";
 let V={pid:S.get("pid"),code:"",title:"",name:"",err:"",P:null,iv:null,timer:0};
@@ -144,19 +144,21 @@ async function cleanRandom(){
 }
 async function enter(){
  let r;try{r=await rpc("my_role",{})}catch(e){return trainer()}
- if(r=="formateur")return trainer();
+ if(r=="formateur"){T.guest=false;return trainer()}
  if(r=="invite")return guest();
  await sb.auth.signOut();V.err="Ce compte n'a pas encore de droits. Contactez le formateur.";loginView();
 }
 async function gload(){
  const[l,x,pr]=await Promise.all([sb.rpc("invite_qcm_list"),sb.from("sessions").select("*").order("created_at",{ascending:false}).limit(20),sb.rpc("invite_presence")]);
- T.gq=l.data||[];T.sessions=x.data||[];T.gp=pr.data||[];
+ T.gerr=l.error?l.error.message:"";T.gq=l.data||[];T.sessions=x.data||[];T.gp=pr.data||[];
 }
-async function guest(){clearInterval(T.iv);await gload();gshell();T.iv=setInterval(async()=>{await gload();gdraw()},3000)}
+async function guest(){T.guest=true;clearInterval(T.iv);await gload();gshell();T.iv=setInterval(async()=>{await gload();gdraw()},3000)}
 const gOpts=()=>FOLDERS.map(f=>{const L=(T.gq||[]).filter(q=>folderOf(q)==f);return L.length?`<optgroup label="${FOL[f]}">${L.map(q=>`<option value="${q.id}">${esc(q.title)} (${q.n} q.)</option>`).join("")}</optgroup>`:""}).join("");
 function gshell(){
  app.innerHTML=`<div class="row"><h1>Séances</h1><button class="btn alt s" data-a="signout">Déconnexion</button></div><p class="sm mute">Compte invité : vous lancez les QCM préparés par le formateur.</p>
- <h2>Nouvelle séance</h2><div class="card"><label>QCM</label><select id="ns-q">${gOpts()}</select><label>Groupe ou stage</label><input id="ns-g" placeholder="Ex. PSE1 – Octobre"><button class="btn" data-a="glaunch" ${T.gq.length?"":"disabled"}>Générer le code</button></div>
+ <h2>Nouvelle séance</h2><div class="card"><label>QCM</label><select id="ns-q">${gOpts()}</select><label>Groupe ou stage</label><input id="ns-g" placeholder="Ex. PSE1 – Octobre">${T.gerr?`<p class="sm" style="color:var(--ko)" role="alert">Impossible de charger les QCM : ${esc(T.gerr)}</p>`:(T.gq.length?"":`<p class="sm mute">Aucun QCM disponible pour l'instant.</p>`)}<button class="btn" data-a="glaunch" ${T.gq.length?"":"disabled"}>Générer le code</button></div>
+ <details class="card"><summary style="margin:0">🎲 Séance aléatoire</summary><label>Niveau</label><select id="rg-l"><option>PSE1</option><option>PSE2</option><option value="Tous">PSE1 + PSE2</option></select>
+ <label>Nombre de questions</label><input id="rg-n" type="number" min="1" max="100" value="10"><label>Groupe ou stage</label><input id="rg-g" placeholder="Ex. PSE1 – Octobre"><button class="btn" data-a="grandom">Générer le code</button></details>
  <h2>Mes séances</h2><div id="list"></div>`;gdraw();
 }
 function gdraw(){
@@ -238,7 +240,8 @@ async function newTheme(i){
  shell();
 }
 const DL={facile:"Facile",moyen:"Moyen",difficile:"Difficile"},dOf=k=>DL[k.d]?k.d:"moyen";
-const FOL={"PSE1":"PSE1","PSE2":"PSE2","PSE1 + PSE2":"PSE 1/2"},FOLDERS=Object.keys(FOL),folderOf=q=>FOL[q.level]?q.level:"PSE1 + PSE2";
+const FOL={"PSE1":"PSE1","PSE2":"PSE2","PSE1 + PSE2":"PSE 1/2","ALEA":"🎲 QCM aléatoire"},FOLDERS=Object.keys(FOL),LEVELS=["PSE1","PSE2","PSE1 + PSE2"];
+const levelOf=q=>LEVELS.includes(q.level)?q.level:"PSE1 + PSE2",folderOf=q=>(q.title||"").startsWith("🎲")?"ALEA":levelOf(q);
 function sumList(qs,by){const c={};qs.forEach(k=>{const n=by=="d"?DL[dOf(k)]:((k.th||"").trim()||"Sans thème");c[n]=(c[n]||0)+1});
  const L=by=="d"?["Facile","Moyen","Difficile"].filter(x=>c[x]).map(x=>[x,c[x]]):Object.entries(c).sort((a,b)=>b[1]-a[1]);return L.map(([n,v])=>[n,v,Math.round(v/qs.length*100)])}
 const sumText=(qs,by)=>sumList(qs,by).map(([n,v,p])=>n+" "+p+" %").join(" · ");
@@ -294,7 +297,7 @@ const tools=()=>`<details class="card"><summary style="margin:0">Outils</summary
 function qlist(){
  const f=T.folder;
  if(!f)return `<button class="btn" data-a="newq">+ Nouveau QCM</button>${tools()}<h2>Dossiers</h2>${FOLDERS.map(x=>`<button class="opt" data-a="openfol" data-v="${x}"><b>📁 ${FOL[x]}</b> <span class="mute sm">· ${T.qcms.filter(q=>folderOf(q)==x).length} QCM</span></button>`).join("")}`;
- return `<button class="btn alt s" data-a="backfol">← Dossiers</button><h2>📁 ${FOL[f]}</h2><button class="btn" data-a="newq">+ Nouveau QCM dans ce dossier</button>${tools()}${T.qcms.filter(q=>folderOf(q)==f).map(qcard).join("")||`<p class="mute">Dossier vide.</p>`}`;
+ return `<button class="btn alt s" data-a="backfol">← Dossiers</button><h2>📁 ${FOL[f]}</h2>${f=="ALEA"?`<button class="btn" data-a="newgen">🎲 Créer un QCM aléatoire</button>`:`<button class="btn" data-a="newq">+ Nouveau QCM dans ce dossier</button>`}${tools()}${T.qcms.filter(q=>folderOf(q)==f).map(qcard).join("")||`<p class="mute">${f=="ALEA"?"Aucun QCM aléatoire en attente. Ils sont supprimés automatiquement après usage.":"Dossier vide."}</p>`}`;
 }
 function qMini(k,i){return `<div class="card row"><div class="sm" style="flex:1;min-width:0"><b>${i+1}.</b> ${esc((k.q||"(question vide)").slice(0,80))}<br><span class="tag">${esc((k.th||"").trim()||"Sans thème")}</span> <span class="tag">${DL[dOf(k)]}</span></div><div><button class="btn alt s" data-a="openk" data-i="${i}">Modifier</button><button class="btn del s" data-a="delk" data-i="${i}">Retirer</button></div></div>`}
 function qFull(k,i){return `<div class="card"><div class="row"><b>Question ${i+1}</b><span><button class="btn alt s" data-a="openk" data-i="${i}">Réduire</button><button class="btn del s" data-a="delk" data-i="${i}">Retirer</button></span></div>
@@ -309,7 +312,7 @@ function qFull(k,i){return `<div class="card"><div class="row"><b>Question ${i+1
 function editor(){
  const e=T.ed;
  return `<div class="card"><label>Titre du QCM</label><input data-f="title" value="${esc(e.title)}">
- <div class="two"><div><label>Dossier</label><select data-f="level">${FOLDERS.map(l=>`<option value="${l}" ${e.level==l?"selected":""}>${FOL[l]}</option>`).join("")}</select></div>
+ <div class="two"><div><label>Dossier</label><select data-f="level">${LEVELS.map(l=>`<option value="${l}" ${e.level==l?"selected":""}>${FOL[l]}</option>`).join("")}</select></div>
  <div><label>Temps par question (s, 0 = sans limite)</label><input type="number" min="0" data-f="timer" value="${e.timer||0}"></div></div></div>
  <div class="card"><div class="row"><b>Répartition</b><span><button class="btn ${T.sumTab=="d"?"alt":""} s" data-a="sumtab" data-v="th">Thèmes</button><button class="btn ${T.sumTab=="d"?"":"alt"} s" data-a="sumtab" data-v="d">Difficulté</button></span></div><div id="sum">${sumHtml(e.qs,T.sumTab)}</div></div>
  ${e.qs.map((k,i)=>T.open===i?qFull(k,i):qMini(k,i)).join("")}
@@ -350,13 +353,16 @@ document.addEventListener("click",async e=>{
  if(a=="login"){V.err="";const{data}=await sb.auth.getSession();return data.session?enter():loginView()}
  if(a=="signin"){const{error}=await sb.auth.signInWithPassword({email:$("#em").value.trim(),password:$("#pw").value});
   if(error){V.err="E-mail ou mot de passe incorrect.";return loginView()}V.err="";return enter()}
- if(a=="signout"){await sb.auth.signOut();return home()}
+ if(a=="signout"){if(T.guest){try{await sb.rpc("invite_reset")}catch(e){}T.guest=false;T.sessions=[];T.gp=[]}await sb.auth.signOut();return home()}
  if(a=="tab"){T.tab=b.dataset.v;T.ed=T.doc=T.gen=T.thm=T.dup=null;return shell()}
  if(a=="glaunch"){const g=$("#ns-g").value.trim(),q=T.gq.find(x=>x.id==$("#ns-q").value);if(!g||!q)return alert("Indiquez un groupe.");
   if(await run(sb.from("sessions").insert({qcm_id:q.id,group_name:g,title:q.title})))await gload();return gshell()}
  if(a=="gstart"){if(!confirm("Lancer le QCM pour tous les stagiaires présents ?"))return;
   await run(sb.from("sessions").update({status:"running",started_at:new Date().toISOString()}).eq("id",id));await gload();return gdraw()}
- if(a=="gend"){await run(sb.from("sessions").update({status:"closed"}).eq("id",id));await gload();return gdraw()}
+ if(a=="gend"){const r=await sb.rpc("invite_end",{p_id:id});if(r.error)await run(sb.from("sessions").update({status:"closed"}).eq("id",id));await gload();return gdraw()}
+ if(a=="grandom"){const g=$("#rg-g").value.trim();if(!g)return alert("Indiquez un groupe.");
+  const r=await sb.rpc("invite_random",{p_level:$("#rg-l").value,p_count:+$("#rg-n").value,p_group:g});
+  if(r.error)return alert(ERR[r.error.message]||"Création impossible : "+r.error.message);await gload();return gshell()}
  if(a=="gqr"){T.qr=T.qr==id?null:id;return gdraw()}
  if(a=="launch"){const g=$("#ns-g").value.trim();if(!g)return alert("Indiquez un groupe.");
   if(await run(sb.from("sessions").insert({qcm_id:$("#ns-q").value,group_name:g,title:(T.qcms.find(x=>x.id==$("#ns-q").value)||{}).title})))await load();return shell()}
@@ -367,8 +373,8 @@ document.addEventListener("click",async e=>{
  if(a=="qr"){T.qr=T.qr==id?null:id;return drawList()}
  if(a=="detail"){T.sel=T.sel==id?null:id;return drawList()}
  if(a=="delsess"){if(confirm("Supprimer cette séance et ses résultats ?")){await run(sb.from("sessions").delete().eq("id",id));await load();drawList()}return}
- if(a=="newq"){T.ed={title:"",level:T.folder||"PSE1",timer:0,qs:[blankK()]};T.open=0;T.sumTab="th"}
- else if(a=="editq"){T.ed=JSON.parse(JSON.stringify(T.qcms.find(x=>x.id==id)));T.ed.level=folderOf(T.ed);T.open=null;T.sumTab="th"}
+ if(a=="newq"){T.ed={title:"",level:LEVELS.includes(T.folder)?T.folder:"PSE1",timer:0,qs:[blankK()]};T.open=0;T.sumTab="th"}
+ else if(a=="editq"){T.ed=JSON.parse(JSON.stringify(T.qcms.find(x=>x.id==id)));T.ed.level=levelOf(T.ed);T.open=null;T.sumTab="th"}
  else if(a=="openk")T.open=T.open===+b.dataset.i?null:+b.dataset.i;
  else if(a=="sumtab")T.sumTab=b.dataset.v;
  else if(a=="openfol")T.folder=b.dataset.v;
