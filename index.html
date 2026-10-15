@@ -8,7 +8,8 @@
 /* ===== À REMPLIR : gardez bien les guillemets " " autour des valeurs ===== */
 window.CFG={
   url:"https://ywooqowudsgjsxqempcy.supabase.co",
-  key:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3b29xb3d1ZHNnanN4cWVtcGN5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0NTk1OTAsImV4cCI6MjEwNzAzNTU5MH0.0NNJxfN7mkHh9gzkTPcdgqiuSGmq0b8LqrUazsK0Fnc"
+  key:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3b29xb3d1ZHNnanN4cWVtcGN5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0NTk1OTAsImV4cCI6MjEwNzAzNTU5MH0.0NNJxfN7mkHh9gzkTPcdgqiuSGmq0b8LqrUazsK0Fnc
+"
 };
 /* ======================================================================== */
 setTimeout(function(){var a=document.getElementById("app");if(a&&a.textContent.trim()==="Chargement…")a.innerHTML="<h1>Le site ne démarre pas</h1><p>Le programme du site ne s'est pas exécuté. Une modification de index.html a probablement supprimé un guillemet ou un caractère. Recopiez le fichier d'origine et ne modifiez que les deux valeurs entre guillemets.</p>"},3000);
@@ -120,8 +121,9 @@ async function finish(){
  app.innerHTML=`<p class="mute">Envoi de vos réponses…</p>`;
  try{const r=await rpc("submit_answers",{p_pid:V.pid,p_ans:V.P.ans});S.del("pid");V.pid=null;
   app.innerHTML=`<p class="mute">Résultat</p><div class="score">${r.score}/${r.total}</div><p class="sm mute">Résultat transmis à votre formateur.</p>
-  <p class="sm">${Object.entries(r.themes).map(([k,v])=>esc(k)+" "+v[0]+"/"+v[1]).join(" · ")}</p>
-  ${diffLine(r.review)?`<p class="sm mute">Par difficulté : ${diffLine(r.review)}</p>`:""}<h2>Vos réponses</h2>${reviewHtml(r.review,"Votre réponse")}
+  <div class="card"><b>Par thème</b>${themeSum(r.themes)}</div>
+  ${diffLine(r.review)?`<p class="sm mute">Par difficulté : ${diffLine(r.review)}</p>`:""}
+  <details class="card"><summary style="margin:0">Voir toutes mes réponses (${r.review.length})</summary>${reviewHtml(r.review,"Votre réponse")}</details>
   <button class="btn" data-a="home">Terminer</button>`}
  catch(e){app.innerHTML=`<p>${esc(msg(e))}</p><button class="btn" data-a="home">Retour</button>`}
 }
@@ -136,9 +138,39 @@ async function load(){
  T.themeRows=th.data||[];
  T.qcms=q.data||[];T.sessions=s.data||[];T.parts=p.data||[];T.docs=d.data||[];
 }
+async function cleanRandom(){
+ for(const q of T.qcms.filter(q=>q.title.startsWith("🎲"))){
+  const ss=T.sessions.filter(x=>x.qcm_id==q.id);
+  if(ss.length&&ss.every(x=>"title" in x&&x.status=="closed")){await sb.from("qcm").delete().eq("id",q.id);T.qcms=T.qcms.filter(x=>x.id!=q.id)}}
+}
+async function enter(){
+ let r;try{r=await rpc("my_role",{})}catch(e){return trainer()}
+ if(r=="formateur")return trainer();
+ if(r=="invite")return guest();
+ await sb.auth.signOut();V.err="Ce compte n'a pas encore de droits. Contactez le formateur.";loginView();
+}
+async function gload(){
+ const[l,x,pr]=await Promise.all([sb.rpc("invite_qcm_list"),sb.from("sessions").select("*").order("created_at",{ascending:false}).limit(20),sb.rpc("invite_presence")]);
+ T.gq=l.data||[];T.sessions=x.data||[];T.gp=pr.data||[];
+}
+async function guest(){clearInterval(T.iv);await gload();gshell();T.iv=setInterval(async()=>{await gload();gdraw()},3000)}
+const gOpts=()=>FOLDERS.map(f=>{const L=(T.gq||[]).filter(q=>folderOf(q)==f);return L.length?`<optgroup label="${FOL[f]}">${L.map(q=>`<option value="${q.id}">${esc(q.title)} (${q.n} q.)</option>`).join("")}</optgroup>`:""}).join("");
+function gshell(){
+ app.innerHTML=`<div class="row"><h1>Séances</h1><button class="btn alt s" data-a="signout">Déconnexion</button></div><p class="sm mute">Compte invité : vous lancez les QCM préparés par le formateur.</p>
+ <h2>Nouvelle séance</h2><div class="card"><label>QCM</label><select id="ns-q">${gOpts()}</select><label>Groupe ou stage</label><input id="ns-g" placeholder="Ex. PSE1 – Octobre"><button class="btn" data-a="glaunch" ${T.gq.length?"":"disabled"}>Générer le code</button></div>
+ <h2>Mes séances</h2><div id="list"></div>`;gdraw();
+}
+function gdraw(){
+ const el=$("#list");if(!el)return;
+ el.innerHTML=T.sessions.map(s=>{const pr=(T.gp||[]).filter(p=>p.s==s.id),fin=pr.filter(p=>p.finished);
+  return`<div class="card"><div class="row"><div><b>${esc(s.title||"QCM")}</b> <span class="tag">${SLAB[s.status]}</span><br><span class="sm mute">${esc(s.group_name)} · ${fmt(s.created_at)}</span></div><div class="code">${esc(s.code)}</div></div>
+  <div>${s.status=="lobby"?`<button class="btn s" data-a="gstart" data-id="${s.id}">Démarrer pour tous</button><button class="btn alt s" data-a="gqr" data-id="${s.id}">${T.qr==s.id?"Masquer le QR code":"QR code"}</button>`:""}${s.status!="closed"?`<button class="btn alt s" data-a="gend" data-id="${s.id}">${s.status=="lobby"?"Fermer":"Terminer"}</button>`:""}</div>
+  ${T.qr==s.id&&s.status=="lobby"?`<div style="margin-top:10px;text-align:center"><div class="qr" style="background:#fff;display:inline-block;padding:10px;border-radius:10px;width:min(100%,320px)">${qrSvg(joinLink(s.code))||`<p style="color:#000;margin:20px">QR code indisponible : donnez le code.</p>`}</div></div>`:""}
+  <p class="sm" style="margin:8px 0 0"><b>${pr.length} présent(s)</b>${s.status!="lobby"?` · ${fin.length} terminé(s)`:""}${pr.length?" : "+pr.map(p=>esc(p.name)+(p.finished?" ✓":"")).join(", "):""}</p></div>`}).join("")||`<p class="mute">Aucune séance.</p>`;
+}
 async function trainer(){
- clearInterval(T.iv);await load();shell();
- T.iv=setInterval(async()=>{if(T.tab!="seances"||T.ed||T.doc)return;await load();drawList()},3000);
+ clearInterval(T.iv);await load();await cleanRandom();shell();
+ T.iv=setInterval(async()=>{if(T.tab!="seances"||T.ed||T.doc)return;await load();await cleanRandom();drawList()},3000);
 }
 function shell(){
  const N=[["seances","Séances"],["qcm","QCM"],["docs","Documentation"]];
@@ -155,11 +187,11 @@ function drawList(){
  const el=$("#list");if(!el)return;const LAB={lobby:"Salle ouverte",running:"En cours",closed:"Terminée"};
  el.innerHTML=T.sessions.map(s=>{const q=T.qcms.find(x=>x.id==s.qcm_id),pr=T.parts.filter(p=>p.session_id==s.id),fin=pr.filter(p=>p.finished);
   const avg=fin.length?Math.round(fin.reduce((a,p)=>a+p.score/p.total,0)/fin.length*100):null;
-  return`<div class="card"><div class="row"><div><b>${esc(q?q.title:"QCM supprimé")}</b> <span class="tag">${LAB[s.status]}</span><br><span class="sm mute">${esc(s.group_name)} · ${fmt(s.created_at)}</span></div><div class="code">${esc(s.code)}</div></div>
+  return`<div class="card"><div class="row"><div><b>${esc(s.title||(q?q.title:"QCM supprimé"))}</b> <span class="tag">${LAB[s.status]}</span><br><span class="sm mute">${esc(s.group_name)} · ${fmt(s.created_at)}</span></div><div class="code">${esc(s.code)}</div></div>
   <div>${s.status=="lobby"?`<button class="btn s" data-a="start" data-id="${s.id}">Démarrer pour tous</button><button class="btn alt s" data-a="qr" data-id="${s.id}">${T.qr==s.id?"Masquer le QR code":"QR code"}</button>`:""}${s.status!="closed"?`<button class="btn alt s" data-a="endsess" data-id="${s.id}">${s.status=="lobby"?"Fermer":"Terminer"}</button>`:""}<button class="btn alt s" data-a="detail" data-id="${s.id}">Résultats</button><button class="btn del s" data-a="delsess" data-id="${s.id}">Supprimer</button></div>
   ${T.qr==s.id&&s.status=="lobby"?`<div style="margin-top:10px;text-align:center"><div class="qr" style="background:#fff;display:inline-block;padding:10px;border-radius:10px;width:min(100%,320px)">${qrSvg(joinLink(s.code))||`<p style="color:#000;margin:20px">QR code indisponible : donnez le code ou le lien.</p>`}</div><p class="sm" style="margin:8px 0 0">Scannez, puis saisissez votre nom.<br><span class="mute">${esc(joinLink(s.code))}</span></p></div>`:""}
   <p class="sm" style="margin:8px 0 0"><b>${pr.length} présent(s)</b>${s.status!="lobby"?` · ${fin.length} terminé(s)`:""}${avg!==null?` · moyenne ${avg} %`:""}${pr.length?" : "+pr.map(p=>esc(p.name)+(p.finished?" ✓":"")).join(", "):""}</p>
-  ${T.sel==s.id?`<div style="margin-top:8px">${fin.sort((a,b)=>a.score/a.total-b.score/b.total).map(p=>`<div class="sm" style="margin-bottom:6px"><div class="row"><span>${esc(p.name)}</span><b>${p.score}/${p.total} (${Math.round(p.score/p.total*100)} %)</b></div>${weak(p.themes)?`<span class="mute">À revoir : ${esc(weak(p.themes))}</span><br>`:""}${diffLine(p.review)?`<span class="mute">Par difficulté : ${diffLine(p.review)}</span><br>`:""}<button class="btn alt s" data-a="pdet" data-id="${p.id}">${T.pd==p.id?"Masquer les réponses":"Voir les réponses"}</button>${T.pd==p.id?(p.review?reviewHtml(p.review,"Réponse du stagiaire"):`<p class="mute">Détail non disponible pour ce stagiaire.</p>`):""}</div>`).join("")||`<p class="sm mute">Aucun résultat pour l'instant.</p>`}</div>`:""}</div>`}).join("")||`<p class="mute">Aucune séance.</p>`;
+  ${T.sel==s.id?`<div style="margin-top:8px">${fin.sort((a,b)=>a.score/a.total-b.score/b.total).map(p=>`<div class="sm" style="margin-bottom:6px"><div class="row"><span>${esc(p.name)}</span><b>${p.score}/${p.total} (${Math.round(p.score/p.total*100)} %)</b></div>${weak(p.themes)?`<span class="mute">À revoir : ${esc(weak(p.themes))}</span><br>`:""}${diffLine(p.review)?`<span class="mute">Par difficulté : ${diffLine(p.review)}</span><br>`:""}<button class="btn alt s" data-a="pdet" data-id="${p.id}">${T.pd==p.id?"Masquer les réponses":"Voir les réponses"}</button>${T.pd==p.id?`<div class="card" style="margin-top:8px"><b>Par thème</b>${themeSum(p.themes)}</div>`:""}${T.pd==p.id?(p.review?reviewHtml(p.review,"Réponse du stagiaire"):`<p class="mute">Détail non disponible pour ce stagiaire.</p>`):""}</div>`).join("")||`<p class="sm mute">Aucun résultat pour l'instant.</p>`}</div>`:""}</div>`}).join("")||`<p class="mute">Aucune séance.</p>`;
 }
 function joinLink(c){return location.origin+location.pathname+"?code="+encodeURIComponent(c)}
 function qrSvg(u){try{if(typeof qrcode=="undefined")return"";const q=qrcode(0,"M");q.addData(u);q.make();return q.createSvgTag(6,2)}catch(e){return""}}
@@ -213,6 +245,9 @@ function sumList(qs,by){const c={};qs.forEach(k=>{const n=by=="d"?DL[dOf(k)]:((k
 const sumText=(qs,by)=>sumList(qs,by).map(([n,v,p])=>n+" "+p+" %").join(" · ");
 const sumHtml=(qs,by)=>sumList(qs,by).map(([n,v,p])=>`<div class="sm" style="margin:6px 0"><div class="row"><span>${esc(n)}</span><b>${p} % <span class="mute">(${v})</span></b></div><div class="bar" style="height:6px"><i style="width:${p}%"></i></div></div>`).join("")||`<p class="sm mute">Aucune question.</p>`;
 const diffLine=rev=>{if(!rev||!rev.some(x=>x.d))return"";const c={};rev.forEach(x=>{const n=DL[x.d]||"Moyen";(c[n]=c[n]||[0,0])[1]++;if(x.good)c[n][0]++});return["Facile","Moyen","Difficile"].filter(n=>c[n]).map(n=>n+" "+c[n][0]+"/"+c[n][1]).join(" · ")};
+const THR=.6;
+const themeSum=th=>Object.entries(th||{}).map(([n,v])=>({n,g:v[0],t:v[1]})).sort((a,b)=>a.g/a.t-b.g/b.t).map(x=>{const ok=x.g/x.t>=THR;return`<div class="row sm" style="padding:4px 0"><span>${esc(x.n)}</span><span style="color:var(${ok?"--ok":"--ko"})"><b>${x.g}/${x.t}</b> · ${ok?"✓ Réussi":"✗ À revoir"}</span></div>`}).join("");
+const SLAB={lobby:"Salle ouverte",running:"En cours",closed:"Terminée"};
 const qOpts=()=>FOLDERS.map(f=>{const L=T.qcms.filter(q=>folderOf(q)==f);return L.length?`<optgroup label="${FOL[f]}">${L.map(q=>`<option value="${q.id}">${esc(q.title)}</option>`).join("")}</optgroup>`:""}).join("");
 const pool=()=>T.qcms.filter(q=>!q.title.startsWith("🎲"));
 const preselect=l=>pool().filter(q=>l=="Tous"||q.level==l).map(q=>q.id);
@@ -313,16 +348,22 @@ document.addEventListener("click",async e=>{
   try{V.pid=await rpc("join_session",{p_code:V.code,p_name:n});S.set("pid",V.pid);return waitView()}catch(x){V.err=msg(x);return nameView()}}
  if(a=="pick"){const d=+b.dataset.d,k=P.list[P.i];P.sel=k.multi?(P.sel.includes(d)?P.sel.filter(x=>x!=d):[...P.sel,d]):[d];return playView()}
  if(a=="valid"){if(P.sel.length)advance();return}
- if(a=="login"){V.err="";const{data}=await sb.auth.getSession();return data.session?trainer():loginView()}
+ if(a=="login"){V.err="";const{data}=await sb.auth.getSession();return data.session?enter():loginView()}
  if(a=="signin"){const{error}=await sb.auth.signInWithPassword({email:$("#em").value.trim(),password:$("#pw").value});
-  if(error){V.err="E-mail ou mot de passe incorrect.";return loginView()}V.err="";return trainer()}
+  if(error){V.err="E-mail ou mot de passe incorrect.";return loginView()}V.err="";return enter()}
  if(a=="signout"){await sb.auth.signOut();return home()}
  if(a=="tab"){T.tab=b.dataset.v;T.ed=T.doc=T.gen=T.thm=T.dup=null;return shell()}
+ if(a=="glaunch"){const g=$("#ns-g").value.trim(),q=T.gq.find(x=>x.id==$("#ns-q").value);if(!g||!q)return alert("Indiquez un groupe.");
+  if(await run(sb.from("sessions").insert({qcm_id:q.id,group_name:g,title:q.title})))await gload();return gshell()}
+ if(a=="gstart"){if(!confirm("Lancer le QCM pour tous les stagiaires présents ?"))return;
+  await run(sb.from("sessions").update({status:"running",started_at:new Date().toISOString()}).eq("id",id));await gload();return gdraw()}
+ if(a=="gend"){await run(sb.from("sessions").update({status:"closed"}).eq("id",id));await gload();return gdraw()}
+ if(a=="gqr"){T.qr=T.qr==id?null:id;return gdraw()}
  if(a=="launch"){const g=$("#ns-g").value.trim();if(!g)return alert("Indiquez un groupe.");
-  if(await run(sb.from("sessions").insert({qcm_id:$("#ns-q").value,group_name:g})))await load();return shell()}
+  if(await run(sb.from("sessions").insert({qcm_id:$("#ns-q").value,group_name:g,title:(T.qcms.find(x=>x.id==$("#ns-q").value)||{}).title})))await load();return shell()}
  if(a=="start"){if(!confirm("Lancer le QCM pour tous les stagiaires présents ?"))return;
   await run(sb.from("sessions").update({status:"running",started_at:new Date().toISOString()}).eq("id",id));await load();return drawList()}
- if(a=="endsess"){await run(sb.from("sessions").update({status:"closed"}).eq("id",id));await load();return drawList()}
+ if(a=="endsess"){await run(sb.from("sessions").update({status:"closed"}).eq("id",id));await load();await cleanRandom();return drawList()}
  if(a=="pdet"){T.pd=T.pd==id?null:id;return drawList()}
  if(a=="qr"){T.qr=T.qr==id?null:id;return drawList()}
  if(a=="detail"){T.sel=T.sel==id?null:id;return drawList()}
@@ -354,7 +395,7 @@ document.addEventListener("click",async e=>{
   if(n<want&&!confirm("Seulement "+n+" questions disponibles sur "+want+" demandées. Continuer avec "+n+" ?"))return;
   if(!title.startsWith("🎲"))title="🎲 "+title;
   const qs=JSON.parse(JSON.stringify(d.picks));
-  if(await run(sb.from("qcm").insert({title,level:g.level=="Tous"?"PSE1 + PSE2":g.level,timer:0,qs}))){T.gen=null;await load();alert("QCM créé avec "+n+" questions.\nThèmes : "+sumText(qs)+"\nDifficulté : "+sumText(qs,"d")+(d.fill?"\n("+d.fill+" question(s) prise(s) dans un autre niveau, faute de questions au niveau demandé.)":""))}else return}
+  if(await run(sb.from("qcm").insert({title,level:g.level=="Tous"?"PSE1 + PSE2":g.level,timer:0,qs}))){T.gen=null;await load();alert("QCM créé avec "+n+" questions. Il sera supprimé automatiquement une fois la séance terminée.\nThèmes : "+sumText(qs)+"\nDifficulté : "+sumText(qs,"d")+(d.fill?"\n("+d.fill+" question(s) prise(s) dans un autre niveau, faute de questions au niveau demandé.)":""))}else return}
  else if(a=="themes")T.thm=true;
  else if(a=="dups")T.dup=true;
  else if(a=="rmq"){const q=T.qcms.find(x=>x.id==id),x=+b.dataset.x;
