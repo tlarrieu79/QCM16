@@ -9,7 +9,6 @@
 window.CFG={
   url:"https://ywooqowudsgjsxqempcy.supabase.co",
   key:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3b29xb3d1ZHNnanN4cWVtcGN5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0NTk1OTAsImV4cCI6MjEwNzAzNTU5MH0.0NNJxfN7mkHh9gzkTPcdgqiuSGmq0b8LqrUazsK0Fnc"
-};
 /* ======================================================================== */
 setTimeout(function(){var a=document.getElementById("app");if(a&&a.textContent.trim()==="Chargement…")a.innerHTML="<h1>Le site ne démarre pas</h1><p>Le programme du site ne s'est pas exécuté. Une modification de index.html a probablement supprimé un guillemet ou un caractère. Recopiez le fichier d'origine et ne modifiez que les deux valeurs entre guillemets.</p>"},3000);
 </script>
@@ -80,7 +79,7 @@ function nameView(){
  app.innerHTML=`<h1>${esc(V.title)}</h1><p class="mute">Avant d'entrer dans la salle, indiquez votre nom : votre formateur verra vos résultats sous ce nom.</p>
  <label>Prénom et nom</label><input id="nm" autocomplete="name" value="${esc(V.name)}">
  ${V.err?`<p class="sm" style="color:var(--ko)" role="alert">${esc(V.err)}</p>`:""}
- <button class="btn" data-a="join">Entrer dans la salle</button><button class="btn alt" data-a="home">Retour</button>`;
+ <button class="btn" data-a="join">Entrer dans la salle</button><button class="btn alt" data-a="home">Accès stagiaire (saisir un code)</button>`;
 }
 function waitView(){
  app.innerHTML=`<h1>Salle d'attente</h1><div class="card"><p><b>${esc(V.name||"Vous êtes inscrit(e)")}</b></p><p class="mute" style="margin:0">${esc(V.title)}<br>Le QCM démarre pour tout le monde dès que le formateur le lance. Restez sur cette page.</p></div>`;
@@ -353,7 +352,7 @@ document.addEventListener("click",async e=>{
  if(a=="login"){V.err="";const{data}=await sb.auth.getSession();return data.session?enter():loginView()}
  if(a=="signin"){const{error}=await sb.auth.signInWithPassword({email:$("#em").value.trim(),password:$("#pw").value});
   if(error){V.err="E-mail ou mot de passe incorrect.";return loginView()}V.err="";return enter()}
- if(a=="signout"){if(T.guest){try{await sb.rpc("invite_reset")}catch(e){}T.guest=false;T.sessions=[];T.gp=[]}await sb.auth.signOut();return home()}
+ if(a=="signout"){if(T.guest){try{await sb.rpc("invite_reset")}catch(e){}T.guest=false;T.sessions=[];T.gp=[]}await sb.auth.signOut();V.err="";return loginView()}
  if(a=="tab"){T.tab=b.dataset.v;T.ed=T.doc=T.gen=T.thm=T.dup=null;return shell()}
  if(a=="glaunch"){const g=$("#ns-g").value.trim(),q=T.gq.find(x=>x.id==$("#ns-q").value);if(!g||!q)return alert("Indiquez un groupe.");
   if(await run(sb.from("sessions").insert({qcm_id:q.id,group_name:g,title:q.title})))await gload();return gshell()}
@@ -438,8 +437,9 @@ document.addEventListener("click",async e=>{
   if(!s.finished&&s.status=="lobby")return waitView();if(!s.finished&&s.status=="running")return startPlay()}catch(e){}
   S.del("pid");V.pid=null}
  const c=(new URLSearchParams(location.search).get("code")||"").trim().toUpperCase();
- if(c){try{const r=await rpc("check_code",{p_code:c});V.code=c;V.title=r.title;return nameView()}catch(e){V.err=msg(e)}}
- home();
+ if(c){try{const r=await rpc("check_code",{p_code:c});V.code=c;V.title=r.title;return nameView()}catch(e){V.err=msg(e)}return home()}
+ try{const{data}=await sb.auth.getSession();if(data.session)return enter()}catch(e){}
+ loginView();
 })();
 </script>
 </body>
